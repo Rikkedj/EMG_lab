@@ -9,21 +9,21 @@ def rectification(signal):
     return np.abs(signal)
 
 def downsample(signal, original_rate, target_rate):
-    """
-    Downsample the signal from original_rate to target_rate using averaging.
-    """
-    # Calculate the downsample factor
     factor = int(original_rate / target_rate)
+    if factor <= 0:
+        raise ValueError("Target rate must be less than the original rate")
     
-    # Use numpy's resample function for averaging
-    downsampled_signal = resample(signal, len(signal) // factor)
+    # Ensure the signal length is a multiple of the downsampling factor
+    trimmed_length = len(signal) - (len(signal) % factor)
+    trimmed_signal = signal[:trimmed_length]
     
+    # Reshape and average
+    downsampled_signal = trimmed_signal.reshape(-1, factor).mean(axis=1)
     return downsampled_signal
-
 
 def preprocess_emg(signal, original_rate=2000, target_rate=33.3, lowcut=None, highcut=None, order=4, btype='band'):
     """
-    Preprocess the EMG signal: rectify, downsample, and low-pass filter.
+    Preprocess the EMG signal: rectify, downsample, and filter.
     
     Parameters:
     - signal: Raw EMG signal.
