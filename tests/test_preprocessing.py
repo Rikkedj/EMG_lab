@@ -1,10 +1,9 @@
-# tests/test_preprocessing.py
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import numpy as np
-from emg_preprocessing.preprocessing import preprocess_emg
+from emg_myoelectric_signal_processing import preprocess_emg
 
 # shit+alt+A to uncomment
 """ def test_preprocess_emg():

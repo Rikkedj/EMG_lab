@@ -1,6 +1,9 @@
 import numpy as np
 from scipy.signal import resample
 from .filters import filter_signal
+'''
+Preprocessiing signal. Have to seperate the signals into subarrays before processing.
+'''
 
 def rectification(signal):
     """
@@ -15,7 +18,9 @@ def downsample(signal, original_rate, target_rate):
     
     # Ensure the signal length is a multiple of the downsampling factor
     trimmed_length = len(signal) - (len(signal) % factor)
+    print("trimmed_length from downsample", trimmed_length)
     trimmed_signal = signal[:trimmed_length]
+    print("trimmed_signal from downsample", trimmed_signal)
     
     # Reshape and average
     downsampled_signal = trimmed_signal.reshape(-1, factor).mean(axis=1)
@@ -34,14 +39,12 @@ def preprocess_emg(signal, original_rate=2000, target_rate=33.3, lowcut=None, hi
     - order: Order of the Butterworth filter.
     - btype: Type of the filter ('band', 'low', 'high', 'stop').
     """
-
-    print("Original signal:", signal[:10])  # Print first 10 samples
     rectified_signal = rectification(signal)
-    print("Rectified signal:", rectified_signal[:10])
+    print("rectified_signal", rectified_signal)
     downsampled_signal = downsample(rectified_signal, original_rate, target_rate)
-    print("Downsampled signal:", downsampled_signal[:10])
+    print("downsampled_signal", downsampled_signal)
     filtered_signal = filter_signal(downsampled_signal, lowcut=lowcut, highcut=highcut, fs=target_rate, order=order, btype=btype)
-    print("Filtered signal:", filtered_signal[:10])
+    
 
     return filtered_signal
 

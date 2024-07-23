@@ -7,7 +7,10 @@ def saturate(signal, min_value=-5, max_value=5):
     """
     Saturate the signal between min_value and max_value.
     """
-    return np.clip(signal, min_value, max_value)
+    if max_value < min_value:
+        raise ValueError("max_value must be greater than min_value")
+    else:
+        return np.clip(signal, min_value, max_value)
 
 def deadband(signal, threshold):
     """
@@ -15,6 +18,11 @@ def deadband(signal, threshold):
     is less than the threshold, set it to 0.
     """
     return np.where(np.abs(signal) < threshold, 0, signal)
+
+## Need to send signal to NI DAQ
+# order
+# hand_gain and wrist gain 
+
 
 def to_prosthesis(hand_diff_signal, wrist_diff_signal, hand_gain, wrist_gain, threshold):
     """
