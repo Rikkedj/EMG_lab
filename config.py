@@ -1,4 +1,9 @@
-
+'''
+Configuration values for the project. Paramters are used in the main.py file.
+FILTER_BTYPE: Should be 'low', 'high', 'band' or 'stop' depending on the filter type. 
+If you choose 'band' or 'stop' you have to specify both low and high cutoff frequencies, if you choose 'low' you have to specify the high cutoff frequency, 
+if you choose 'high' you have to specify the low cutoff frequency.
+'''
 ## EMG Preprocessing values
 SENSOR_FREQ = 2000
 PROCESSING_FREQ = 33.3
@@ -12,7 +17,4 @@ WRIST_DEADBAND_TRESHOLD = 0.7
 HAND_GAIN = 1,3
 WRIST_GAIN = 1,3
 
-## Sekvensiell styring (del 3)
-HYSTERESIS_THRESHOLD = 3
-HYSTERESIS_WIDTH = 1
 

@@ -4,8 +4,50 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 import numpy as np
 import matplotlib.pyplot as plt
-from emg_myoelectric_signal_processing import preprocess_emg
+from emg_myoelectric_signal_processing import preprocess_emg, split_emg_data, apply_gain
 import config
+import pandas as pd
+
+def load_emg_data_csv(file_path):
+    """
+    Load EMG data from a CSV file with European decimal and delimiter handling.
+
+    Args:
+        file_path (str): The path to the CSV file containing the EMG data.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the EMG data.
+    """
+    try:
+        # Read the CSV file with semicolon as delimiter and comma as decimal separator
+        df = pd.read_csv(file_path, delimiter='\t', decimal=',')
+      
+        # If the initial attempt fails, try other possible delimiters
+        if df.shape[1] == 1:
+            # Try with a semicolon if tabs don't work
+            df = pd.read_csv(file_path, sep=';', decimal=',', encoding='utf-8')
+
+        # Rename columns to avoid duplication
+        df.columns = [
+            'Time_EMG_1', 'Signal_EMG_1', 
+            'Time_EMG_2', 'Signal_EMG_2', 
+            'Time_EMG_3', 'Signal_EMG_3', 
+            'Time_EMG_4', 'Signal_EMG_4'
+        ]
+
+        # Display basic information about the data
+        print("CSV Data loaded successfully!")
+        print(f"Number of sensors (columns): {df.shape[1] // 2}")
+        print(f"Number of samples (rows): {df.shape[0]}")
+        print(f"Column names (sensor labels): {list(df.columns)}")
+
+        # Return the DataFrame
+        return df
+
+    except Exception as e:
+        print(f"An error occurred while reading the CSV file: {e}")
+        return None
+
 
 
 def plot_signals(signal, plot_label = "Signal"):
@@ -29,20 +71,51 @@ def plot_signals(signal, plot_label = "Signal"):
     # Display plots
     plt.tight_layout()
     plt.show()
-    return 1
+    
+    ## Bedre å gjøre dette i main i guess
 
+def plot_combined_emg_signals(emg_1, emg_2, emg_3, emg_4):
+    """
+    Plot all EMG sensor signals in the same plot for comparison.
 
+    Args:
+        emg_1 (np.ndarray): 2xN array for sensor 1.
+        emg_2 (np.ndarray): 2xN array for sensor 2.
+        emg_3 (np.ndarray): 2xN array for sensor 3.
+        emg_4 (np.ndarray): 2xN array for sensor 4.
+    """
+    plt.figure(figsize=(14, 6))
+    
+    # Plot each sensor's signal on the same plot
+    plt.plot(emg_1[0], emg_1[1], label='EMG Sensor 1', color='b')
+    plt.plot(emg_2[0], emg_2[1], label='EMG Sensor 2', color='g')
+    plt.plot(emg_3[0], emg_3[1], label='EMG Sensor 3', color='r')
+    plt.plot(emg_4[0], emg_4[1], label='EMG Sensor 4', color='m')
+    
+    # Add labels, title, legend, and grid
+    plt.xlabel('Time [samples]')
+    plt.ylabel('Signal Value')
+    plt.title('Combined EMG Signals from All Sensors')
+    plt.legend(loc='upper right')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
 def main():
-    fs = 2000  # Original sampling rate
-    duration = 1  # 1 second of data
-    t = np.linspace(0, duration, fs, endpoint=False)
-    signal = np.sin(2 * np.pi * 10 * t) + 0.5 * np.sin(2 * np.pi * 50 * t)  # Example signal
+    RAW_SIGNAL_GAIN = 1000  #Change this in lab 1
+    ### Plot raw signal here
+    raw_signals = load_emg_data_csv('./test_data/emg_raw1.csv')
+    print("Raw Signal:", raw_signals)
+    raw_signals = apply_gain(raw_signals, RAW_SIGNAL_GAIN)
+    splitted_signals = split_emg_data(raw_signals)
+    emg_sig1 = splitted_signals[0][:]
+    emg_sig2 = splitted_signals[1][:]
+    emg_sig3 = splitted_signals[2][:]
+    emg_sig4 = splitted_signals[3][:]
 
-    print("Original Signal:", signal)
-
-    processed_signal = preprocess_emg(
-        signal,
+    ## Duplicated for now, change bhow preprocess_emg works. This is now hard coded, but need a way to detect how many sensors are used, and only extract and process those
+    processed_signal_1 = preprocess_emg(
+        emg_sig1,
         original_rate=config.SENSOR_FREQ,
         target_rate=config.PROCESSING_FREQ,
         lowcut=config.FILTER_LOW_CUTOFF_FREQUENCY,
@@ -51,9 +124,36 @@ def main():
         btype=config.FILTER_BTYPE
     )
     
-    plot_signals(processed_signal, "Processed Signal")
-    print("Processed Signal:", processed_signal)
-
+    processed_signal_2 = preprocess_emg(
+        emg_sig2,
+        original_rate=config.SENSOR_FREQ,
+        target_rate=config.PROCESSING_FREQ,
+        lowcut=config.FILTER_LOW_CUTOFF_FREQUENCY,
+        highcut=config.FILTER_HIGH_CUTOFF_FREQUENCY,
+        order=config.FILTER_ORDER,
+        btype=config.FILTER_BTYPE
+    )
+    processed_signal_3 = preprocess_emg(
+        emg_sig3,
+        original_rate=config.SENSOR_FREQ,
+        target_rate=config.PROCESSING_FREQ,
+        lowcut=config.FILTER_LOW_CUTOFF_FREQUENCY,
+        highcut=config.FILTER_HIGH_CUTOFF_FREQUENCY,
+        order=config.FILTER_ORDER,
+        btype=config.FILTER_BTYPE
+    )
+    processed_signal_4 = preprocess_emg(
+        emg_sig4,
+        original_rate=config.SENSOR_FREQ,
+        target_rate=config.PROCESSING_FREQ,
+        lowcut=config.FILTER_LOW_CUTOFF_FREQUENCY,
+        highcut=config.FILTER_HIGH_CUTOFF_FREQUENCY,
+        order=config.FILTER_ORDER,
+        btype=config.FILTER_BTYPE
+    )
+    print("Processed Signal:", processed_signal_1)
+    #plot_signals(processed_signal_1, "Processed Signal 1")
+    plot_combined_emg_signals(processed_signal_1, processed_signal_2, processed_signal_3, processed_signal_4)
 
 if __name__ == "__main__":
     main()

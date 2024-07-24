@@ -26,7 +26,7 @@ def deadband(signal, threshold):
 
 def to_prosthesis(hand_diff_signal, wrist_diff_signal, hand_gain, wrist_gain, threshold):
     """
-    Process the hand and wrist difference signals to control the prosthesis.
+    Process the hand and wrist difference signals to control the prosthesis. The two signals come from myoprocessor, which is made in lab 3.
     
     Parameters:
     - hand_diff_signal: The difference signal for the hand.
