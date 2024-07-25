@@ -84,13 +84,14 @@ def plot_combined_emg_signals(emg_1, emg_2, emg_3, emg_4):
         emg_3 (np.ndarray): 2xN array for sensor 3.
         emg_4 (np.ndarray): 2xN array for sensor 4.
     """
+    time = np.arange(len(emg_1))
     plt.figure(figsize=(14, 6))
     
     # Plot each sensor's signal on the same plot
-    plt.plot(emg_1[0], emg_1[1], label='EMG Sensor 1', color='b')
-    plt.plot(emg_2[0], emg_2[1], label='EMG Sensor 2', color='g')
-    plt.plot(emg_3[0], emg_3[1], label='EMG Sensor 3', color='r')
-    plt.plot(emg_4[0], emg_4[1], label='EMG Sensor 4', color='m')
+    plt.plot(time, emg_1, label='EMG Sensor 1', color='b')
+    plt.plot(time, emg_2, label='EMG Sensor 2', color='g')
+    plt.plot(time, emg_3, label='EMG Sensor 3', color='r')
+    plt.plot(time, emg_4, label='EMG Sensor 4', color='m')
     
     # Add labels, title, legend, and grid
     plt.xlabel('Time [samples]')
@@ -115,7 +116,7 @@ def main():
 
     ## Duplicated for now, change bhow preprocess_emg works. This is now hard coded, but need a way to detect how many sensors are used, and only extract and process those
     processed_signal_1 = preprocess_emg(
-        emg_sig1,
+        emg_sig1[1][:],
         original_rate=config.SENSOR_FREQ,
         target_rate=config.PROCESSING_FREQ,
         lowcut=config.FILTER_LOW_CUTOFF_FREQUENCY,
@@ -125,7 +126,7 @@ def main():
     )
     
     processed_signal_2 = preprocess_emg(
-        emg_sig2,
+        emg_sig2[1][:],
         original_rate=config.SENSOR_FREQ,
         target_rate=config.PROCESSING_FREQ,
         lowcut=config.FILTER_LOW_CUTOFF_FREQUENCY,
@@ -134,7 +135,7 @@ def main():
         btype=config.FILTER_BTYPE
     )
     processed_signal_3 = preprocess_emg(
-        emg_sig3,
+        emg_sig3[1][:],
         original_rate=config.SENSOR_FREQ,
         target_rate=config.PROCESSING_FREQ,
         lowcut=config.FILTER_LOW_CUTOFF_FREQUENCY,
@@ -143,7 +144,7 @@ def main():
         btype=config.FILTER_BTYPE
     )
     processed_signal_4 = preprocess_emg(
-        emg_sig4,
+        emg_sig4[1][:],
         original_rate=config.SENSOR_FREQ,
         target_rate=config.PROCESSING_FREQ,
         lowcut=config.FILTER_LOW_CUTOFF_FREQUENCY,

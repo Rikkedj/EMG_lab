@@ -62,10 +62,13 @@ def rectification(signal):
 
 def downsample(signal, original_rate, target_rate):
     factor = int(original_rate / target_rate)
+    print("factor from downsample", factor)
     if factor <= 0:
         raise ValueError("Target rate must be less than the original rate")
     
     # Ensure the signal length is a multiple of the downsampling factor
+    print("len(signal) modulo facotr from downsample", len(signal)%factor)
+    print("len(signal) from downsample", len(signal))
     trimmed_length = len(signal) - (len(signal) % factor)
     print("trimmed_length from downsample", trimmed_length)
     trimmed_signal = signal[:trimmed_length]
