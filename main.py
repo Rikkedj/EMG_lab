@@ -1,160 +1,128 @@
 import sys
 import os
+import signal
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import numpy as np
-import matplotlib.pyplot as plt
 from emg_myoelectric_signal_processing import preprocess_emg, split_emg_data, apply_gain
-import config
-import pandas as pd
-
-def load_emg_data_csv(file_path):
-    """
-    Load EMG data from a CSV file with European decimal and delimiter handling.
-
-    Args:
-        file_path (str): The path to the CSV file containing the EMG data.
-
-    Returns:
-        pd.DataFrame: A DataFrame containing the EMG data.
-    """
-    try:
-        # Read the CSV file with semicolon as delimiter and comma as decimal separator
-        df = pd.read_csv(file_path, delimiter='\t', decimal=',')
-      
-        # If the initial attempt fails, try other possible delimiters
-        if df.shape[1] == 1:
-            # Try with a semicolon if tabs don't work
-            df = pd.read_csv(file_path, sep=';', decimal=',', encoding='utf-8')
-
-        # Rename columns to avoid duplication
-        df.columns = [
-            'Time_EMG_1', 'Signal_EMG_1', 
-            'Time_EMG_2', 'Signal_EMG_2', 
-            'Time_EMG_3', 'Signal_EMG_3', 
-            'Time_EMG_4', 'Signal_EMG_4'
-        ]
-
-        # Display basic information about the data
-        print("CSV Data loaded successfully!")
-        print(f"Number of sensors (columns): {df.shape[1] // 2}")
-        print(f"Number of samples (rows): {df.shape[0]}")
-        print(f"Column names (sensor labels): {list(df.columns)}")
-
-        # Return the DataFrame
-        return df
-
-    except Exception as e:
-        print(f"An error occurred while reading the CSV file: {e}")
-        return None
+from mc_hand_startup import load_emg_data_csv
+import config, time, threading, check_trigno, argparse
+from collections import deque
 
 
+stop_event = threading.Event()  # Event to stop threads
 
-def plot_signals(signal, plot_label = "Signal"):
-    """
-    Plot the original and processed EMG signals.
+# Define a signal handler
+def signal_handler(sig, frame):
+    print("\nInterrupt received. Stopping threads and exiting...")
+    stop_event.set()  # Set the stop event to True
+    sys.exit(0)  # Exit the program
+
+NUM_SENSORS = 0 
+## INITIALIZE QUEUES
+class ThreadSafeQueue:
+    def __init__(self, maxlen=1000):
+        self.queue = deque(maxlen=maxlen)  # Use deque for efficient appending and popping
+        self.lock = threading.Lock()  # Lock for thread safety
+
+    def append(self, item):
+        with self.lock:
+            self.queue.append(item)
+
+    def get_last(self):
+        """
+        Returns the last element of the queue safely.
+        """
+        with self.lock:
+            if self.queue:  # Check if the queue is not empty
+                return self.queue[-1]
+            else:
+                return None  # or raise an exception, depending on your use case
+
+    def is_full(self):
+        with self.lock:
+            return len(self.queue) >= self.queue.maxlen
     
-    Parameters:
-    - signal: Signal you want to plot
-    - plot_name: Name of the plot
-    """
-    # Creating time vectors for plotting
-    time = np.arange(len(signal))
-
-    # Plot processed signal
-    plt.plot(time, signal, color='red', label=plot_label)
-    plt.title('Processed EMG Signal')
-    plt.xlabel('Time (s)')
-    plt.ylabel('Amplitude')
-    plt.grid(True)
-
-    # Display plots
-    plt.tight_layout()
-    plt.show()
+    def is_empty(self):
+        with self.lock:
+            return len(self.queue) == 0
     
-    ## Bedre å gjøre dette i main i guess
+    def clear(self):
+        with self.lock:
+            self.queue.clear()
 
-def plot_combined_emg_signals(emg_1, emg_2, emg_3, emg_4):
-    """
-    Plot all EMG sensor signals in the same plot for comparison.
 
-    Args:
-        emg_1 (np.ndarray): 2xN array for sensor 1.
-        emg_2 (np.ndarray): 2xN array for sensor 2.
-        emg_3 (np.ndarray): 2xN array for sensor 3.
-        emg_4 (np.ndarray): 2xN array for sensor 4.
-    """
-    time = np.arange(len(emg_1))
-    plt.figure(figsize=(14, 6))
-    
-    # Plot each sensor's signal on the same plot
-    plt.plot(time, emg_1, label='EMG Sensor 1', color='b')
-    plt.plot(time, emg_2, label='EMG Sensor 2', color='g')
-    plt.plot(time, emg_3, label='EMG Sensor 3', color='r')
-    plt.plot(time, emg_4, label='EMG Sensor 4', color='m')
-    
-    # Add labels, title, legend, and grid
-    plt.xlabel('Time [samples]')
-    plt.ylabel('Signal Value')
-    plt.title('Combined EMG Signals from All Sensors')
-    plt.legend(loc='upper right')
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
+# Initialize queues for raw data, processed data, and prosthesis setpoints
+raw_emg_queue = ThreadSafeQueue(maxlen=100)
+preprocessed_emg_queue = ThreadSafeQueue(maxlen=100)
+prosthesis_setpoint_queue = ThreadSafeQueue(maxlen=10)
+
+
+def collect_data():
+    # Should be a while loop when getting real-time data
+    global raw_emg_queue
+    ### while True:
+    #raw_signal = load_emg_data_csv(file_path)
+    #while not stop_event.is_set():
+    for i in range(2):
+        raw_data = check_trigno.check_emg(active_channels=config.ACTIVE_CHANNELS, stop_event=stop_event)
+        raw_emg_queue.append(raw_data)
+        print(raw_data)
+    #time.sleep(1)
+    #if raw_emg_queue.is_full():
+    #        break
+
+## NOte! For now Im not sure how the data will be collevted. Assuming it collects a block iof datapoints at a timme, so handle one block at a time
+def process_data():
+    global raw_emg_queue, preprocessed_emg_queue
+    while not stop_event.is_set():
+        if not raw_emg_queue.is_empty():
+            raw_signal = raw_emg_queue.get_last()  # Get the last raw signal from the queue
+            raw_signal_gained = apply_gain(raw_signal, config.RAW_SIGNAL_GAIN)
+            processed_emg = []
+            for raw_emg in split_emg_data(raw_signal_gained):
+                processed_emg.append(preprocess_emg(
+                    raw_emg,
+                    original_rate=config.SENSOR_FREQ,
+                    target_rate=config.PROCESSING_FREQ,
+                    lowcut=config.FILTER_LOW_CUTOFF_FREQUENCY,
+                    highcut=config.FILTER_HIGH_CUTOFF_FREQUENCY,
+                    order=config.FILTER_ORDER,
+                    btype=config.FILTER_BTYPE
+                ))
+            preprocessed_emg_queue.append(processed_emg)
+
 
 def main():
     RAW_SIGNAL_GAIN = 1000  #Change this in lab 1
-    ### Plot raw signal here
-    raw_signals = load_emg_data_csv('./test_data/emg_raw1.csv')
-    print("Raw Signal:", raw_signals)
-    raw_signals = apply_gain(raw_signals, RAW_SIGNAL_GAIN)
-    splitted_signals = split_emg_data(raw_signals)
-    emg_sig1 = splitted_signals[0][:]
-    emg_sig2 = splitted_signals[1][:]
-    emg_sig3 = splitted_signals[2][:]
-    emg_sig4 = splitted_signals[3][:]
-
-    ## Duplicated for now, change bhow preprocess_emg works. This is now hard coded, but need a way to detect how many sensors are used, and only extract and process those
-    processed_signal_1 = preprocess_emg(
-        emg_sig1[1][:],
-        original_rate=config.SENSOR_FREQ,
-        target_rate=config.PROCESSING_FREQ,
-        lowcut=config.FILTER_LOW_CUTOFF_FREQUENCY,
-        highcut=config.FILTER_HIGH_CUTOFF_FREQUENCY,
-        order=config.FILTER_ORDER,
-        btype=config.FILTER_BTYPE
-    )
     
-    processed_signal_2 = preprocess_emg(
-        emg_sig2[1][:],
-        original_rate=config.SENSOR_FREQ,
-        target_rate=config.PROCESSING_FREQ,
-        lowcut=config.FILTER_LOW_CUTOFF_FREQUENCY,
-        highcut=config.FILTER_HIGH_CUTOFF_FREQUENCY,
-        order=config.FILTER_ORDER,
-        btype=config.FILTER_BTYPE
-    )
-    processed_signal_3 = preprocess_emg(
-        emg_sig3[1][:],
-        original_rate=config.SENSOR_FREQ,
-        target_rate=config.PROCESSING_FREQ,
-        lowcut=config.FILTER_LOW_CUTOFF_FREQUENCY,
-        highcut=config.FILTER_HIGH_CUTOFF_FREQUENCY,
-        order=config.FILTER_ORDER,
-        btype=config.FILTER_BTYPE
-    )
-    processed_signal_4 = preprocess_emg(
-        emg_sig4[1][:],
-        original_rate=config.SENSOR_FREQ,
-        target_rate=config.PROCESSING_FREQ,
-        lowcut=config.FILTER_LOW_CUTOFF_FREQUENCY,
-        highcut=config.FILTER_HIGH_CUTOFF_FREQUENCY,
-        order=config.FILTER_ORDER,
-        btype=config.FILTER_BTYPE
-    )
-    print("Processed Signal:", processed_signal_1)
-    #plot_signals(processed_signal_1, "Processed Signal 1")
-    plot_combined_emg_signals(processed_signal_1, processed_signal_2, processed_signal_3, processed_signal_4)
+    collect_data()
+
+    # Register the signal handler
+    #signal.signal(signal.SIGINT, signal_handler)
+
+    ## INITIALIZE THREADS
+    #collect_data_thread = threading.Thread(target=collect_data, args=(), daemon=True)
+    #preprocess_data_thread = threading.Thread(target=process_data, args=(), daemon=True)
+    # Start threads
+    #collect_data_thread.start()
+    #preprocess_data_thread.start() 
+
+'''
+    try:
+        # Main thread logic if needed
+        while not stop_event.is_set():
+            time.sleep(0.1)  # Idle loop to wait for interrupt
+    except KeyboardInterrupt:
+        print("\nStopping threads due to keyboard interrupt...")
+        stop_event.set()  # Set stop event to stop threads
+
+    # Join threads to ensure clean exit
+    collect_data_thread.join()
+    #preprocess_data_thread.join()
+
+    print("All threads stopped. Exiting program.") 
+'''
 
 if __name__ == "__main__":
     main()

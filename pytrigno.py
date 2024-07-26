@@ -22,6 +22,7 @@ SOFTWARE.
 import socket
 import struct
 import numpy
+import time
 
 class _BaseTrignoDaq(object):
     """
@@ -60,27 +61,37 @@ class _BaseTrignoDaq(object):
     BYTES_PER_CHANNEL = 4
     CMD_TERM = '\r\n\r\n'
 
-    def __init__(self, host, cmd_port, data_port, total_channels, timeout):
+    def __init__(self, host, cmd_port, data_port, total_channels, timeout, stop_event):
         self.host = host
         self.cmd_port = cmd_port
         self.data_port = data_port
         self.total_channels = total_channels
         self.timeout = timeout
+        self.stop_event = stop_event
 
         self._min_recv_size = self.total_channels * self.BYTES_PER_CHANNEL
 
         self._initialize()
 
     def _initialize(self):
+        try:
+            # Create command socket and consume the server's initial response
+            self._comm_socket = socket.create_connection(
+                (self.host, self.cmd_port), self.timeout)
+            self._comm_socket.recv(1024)  # Initially reading a small packet to clear buffer
 
-        # create command socket and consume the servers initial response
-        self._comm_socket = socket.create_connection(
-            (self.host, self.cmd_port), self.timeout)
-        self._comm_socket.recv(1024)
+            # Create the data socket
+            self._data_socket = socket.create_connection(
+                (self.host, self.data_port), self.timeout)
 
-        # create the data socket
-        self._data_socket = socket.create_connection(
-            (self.host, self.data_port), self.timeout)
+            # Set the timeout for the data socket for non-blocking operations
+            self._data_socket.settimeout(self.timeout)
+        
+        except socket.error as e:
+            print(f"Error initializing sockets: {e}")
+            raise e
+
+
 
     def start(self):
         """
@@ -114,12 +125,17 @@ class _BaseTrignoDaq(object):
         packet = bytes()
         while l < l_des:
             try:
+                # Attempt to receive data from the socket
                 packet += self._data_socket.recv(l_des - l)
             except socket.timeout:
+                # Timeout occurred, check if stop event is set
+                if self.stop_event.is_set():
+                    print("Data reading stopped due to signal interrupt.")
+                    return None
+                
                 l = len(packet)
                 packet += b'\x00' * (l_des - l)
                 raise IOError("Device disconnected.")
-            l = len(packet)
 
         data = numpy.asarray(
             struct.unpack('<'+'f'*self.total_channels*num_samples, packet))
@@ -138,8 +154,9 @@ class _BaseTrignoDaq(object):
     def __del__(self):
         try:
             self._comm_socket.close()
-        except:
-            pass
+            self._data_socket.close()
+        except Exception as e:
+            print(f"Error closing sockets: {e}")
 
     def _send_cmd(self, command):
         self._comm_socket.send(self._cmd(command))
@@ -170,6 +187,8 @@ class TrignoEMG(_BaseTrignoDaq):
         Sensor channels to use, e.g. (lowchan, highchan) obtains data from
         channels lowchan through highchan. Each sensor has a single EMG
         channel.
+    active_channels : list of int
+        List of active channels indices to read from.
     samples_per_read : int
         Number of samples per channel to read in each read operation.
     units : {'V', 'mV', 'normalized'}, optional
@@ -197,14 +216,23 @@ class TrignoEMG(_BaseTrignoDaq):
         units.
     """
 
-    def __init__(self, channel_range, samples_per_read, units='V',
-                 host='localhost', cmd_port=50040, data_port=50041, timeout=10):
+    def __init__(self, channel_range=None, active_channels=None, samples_per_read=10, units='V',
+                 host='localhost', cmd_port=50040, data_port=50041, timeout=10, stop_event=None):
         super(TrignoEMG, self).__init__(
             host=host, cmd_port=cmd_port, data_port=data_port,
-            total_channels=16, timeout=timeout)
+            total_channels=16, timeout=timeout, stop_event=stop_event)
 
         self.channel_range = channel_range
         self.samples_per_read = samples_per_read
+
+        # Ensure either channel_range or active_channels is specified
+        if not channel_range and not active_channels:
+            raise ValueError("Either channel_range or active_channels must be specified.")
+        
+        if channel_range:
+            self.set_channel_range(channel_range)  
+        elif active_channels:   
+            self.set_active_channels(active_channels)
 
         self.rate = 2000
 
@@ -224,8 +252,35 @@ class TrignoEMG(_BaseTrignoDaq):
         channel_range : tuple
             Sensor channels to use (lowchan, highchan).
         """
+        # Validate the channel range
+        if not isinstance(channel_range, tuple) or len(channel_range) != 2:
+            raise ValueError("Channel range must be a tuple of two integers.")
+
+        if not all(isinstance(ch, int) for ch in channel_range):
+            raise ValueError("Channel range values must be integers.")
+
         self.channel_range = channel_range
+        self.active_channels = list(range(channel_range[0], channel_range[1] + 1))
         self.num_channels = channel_range[1] - channel_range[0] + 1
+
+    def set_active_channels(self, active_channels):
+        """
+        Sets the active channels to read from the device.
+
+        Parameters
+        ----------
+        active_channels : list of int
+            List of active channels(sensors) to read from.
+        """
+        # Validate active channels
+        if not isinstance(active_channels, list) or not active_channels:
+            raise ValueError("Active channels must be a non-empty list of integers.")
+
+        if not all(isinstance(ch, int) for ch in active_channels):
+            raise ValueError("Active channels must only contain integers.")
+        
+        self.active_channels = [ch - 1 for ch in active_channels]
+        self.num_channels = len(active_channels)
 
     def read(self):
         """
@@ -240,10 +295,26 @@ class TrignoEMG(_BaseTrignoDaq):
             Data read from the device. Each channel is a row and each column
             is a point in time.
         """
+        # Read full data from device
         data = super(TrignoEMG, self).read(self.samples_per_read)
-        data = data[self.channel_range[0]:self.channel_range[1]+1, :]
-        return self.scaler * data
+        # data = data[self.channel_range[0]:self.channel_range[1]+1, :]
+        # Select only active channels
+        active_data = data[self.active_channels, :]
 
+        # Scale data if necessary
+        return self.scaler * active_data
+    
+    def get_active_channels(self):
+        """
+        Get the list of active channels currently set.
+
+        Returns
+        -------
+        active_channels : list of int
+            List of active channel indices currently set.
+        """
+        return self.active_channels
+ 
 
 class TrignoAccel(_BaseTrignoDaq):
     """
