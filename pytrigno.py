@@ -124,18 +124,27 @@ class _BaseTrignoDaq(object):
         l = 0
         packet = bytes()
         while l < l_des:
+            if self.stop_event.is_set():
+                print("Data reading stopped due to signal interrupt.")
+                return None
             try:
                 # Attempt to receive data from the socket
-                packet += self._data_socket.recv(l_des - l)
+                chunk = self._data_socket.recv(l_des - l)
+                if not chunk:
+                    # If chunk is empty, the connection is closed
+                    raise IOError("Device disconnected.")
+                packet += chunk
             except socket.timeout:
                 # Timeout occurred, check if stop event is set
-                if self.stop_event.is_set():
-                    print("Data reading stopped due to signal interrupt.")
-                    return None
-                
                 l = len(packet)
                 packet += b'\x00' * (l_des - l)
                 raise IOError("Device disconnected.")
+            except socket.error as e:
+                # Handle other socket errors
+                print(f"Socket error: {e}")
+                return None
+            
+            l = len(packet)
 
         data = numpy.asarray(
             struct.unpack('<'+'f'*self.total_channels*num_samples, packet))
@@ -297,10 +306,8 @@ class TrignoEMG(_BaseTrignoDaq):
         """
         # Read full data from device
         data = super(TrignoEMG, self).read(self.samples_per_read)
-        # data = data[self.channel_range[0]:self.channel_range[1]+1, :]
         # Select only active channels
         active_data = data[self.active_channels, :]
-
         # Scale data if necessary
         return self.scaler * active_data
     

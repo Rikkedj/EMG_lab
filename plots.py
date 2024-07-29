@@ -64,3 +64,5 @@ def update_plot(frame, data_queue):
 def plot_live(fig):
     ani = FuncAnimation(fig, update_plot, blit=True, interval=100)
     plt.show()
+
+

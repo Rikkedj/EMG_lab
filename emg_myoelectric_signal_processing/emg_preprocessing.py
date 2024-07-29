@@ -1,7 +1,8 @@
 import numpy as np
 from scipy.signal import butter, filtfilt
+import config
 
-def butter_filter(lowcut=None, highcut=None, fs=1.0, order=4, btype='band'):
+def butter_filter(lowcut=None, highcut=None, fs=1.0, order=4, btype='low'):
     """
     Apply a Butterworth filter to the signal depending on the btype.
     
@@ -44,8 +45,8 @@ def butter_filter(lowcut=None, highcut=None, fs=1.0, order=4, btype='band'):
     return b, a
 
 
-def filter_signal(emg_signal, lowcut=None, highcut=None, fs=1.0, order=4, btype='band'):
-    b, a = butter_filter(lowcut, highcut, fs, order, btype)
+def filter_signal(emg_signal, lowcut=None, highcut=None, fs=1.0, order=4, btype='low'):
+    b, a = butter_filter(lowcut=lowcut, highcut=highcut, fs=fs, order=order, btype=btype)
     filtered_signal = filtfilt(b, a, emg_signal)
     return filtered_signal
 
@@ -54,31 +55,25 @@ def filter_signal(emg_signal, lowcut=None, highcut=None, fs=1.0, order=4, btype=
 Preprocessiing signal. Have to seperate the signals into subarrays before processing.
 '''
 
-def rectification(signal):
-    """
-    Rectify the EMG signal (absolute value).
-    """
-    return np.abs(signal)
-
 def downsample(signal, original_rate, target_rate):
     factor = int(original_rate / target_rate)
-    print("factor from downsample", factor)
+    #print("factor from downsample", factor)
     if factor <= 0:
         raise ValueError("Target rate must be less than the original rate")
     
     # Ensure the signal length is a multiple of the downsampling factor
-    print("len(signal) modulo facotr from downsample", len(signal)%factor)
-    print("len(signal) from downsample", len(signal))
+    #print("len(signal) modulo facotr from downsample", len(signal)%factor)
+    #print("len(signal) from downsample", len(signal))
     trimmed_length = len(signal) - (len(signal) % factor)
-    print("trimmed_length from downsample", trimmed_length)
+    #print("trimmed_length from downsample", trimmed_length)
     trimmed_signal = signal[:trimmed_length]
-    print("trimmed_signal from downsample", trimmed_signal)
+    #print("trimmed_signal from downsample", trimmed_signal)
     
     # Reshape and average
     downsampled_signal = trimmed_signal.reshape(-1, factor).mean(axis=1)
     return downsampled_signal
 
-def preprocess_emg(signal, original_rate=2000, target_rate=33.3, lowcut=None, highcut=None, order=4, btype='band'):
+def preprocess_emg(signal, original_rate=2000, target_rate=33.3, lowcut=None, highcut=None, order=4, btype='low'):
     """
     Preprocess the EMG signal: rectify, downsample, and filter.
     
@@ -91,14 +86,11 @@ def preprocess_emg(signal, original_rate=2000, target_rate=33.3, lowcut=None, hi
     - order: Order of the Butterworth filter.
     - btype: Type of the filter ('band', 'low', 'high', 'stop').
     """
-    print("input signal", signal)
-    rectified_signal = rectification(signal)
-    print("rectified_signal", rectified_signal)
+    rectified_signal = np.abs(signal)
     downsampled_signal = downsample(rectified_signal, original_rate, target_rate)
-    print("downsampled_signal", downsampled_signal)
-    filtered_signal = filter_signal(downsampled_signal, lowcut=lowcut, highcut=highcut, fs=target_rate, order=order, btype=btype)
+    gained_signal = downsampled_signal * config.RECTIFIED_SIGNAL_GAIN
+    filtered_signal = filter_signal(gained_signal, lowcut=lowcut, highcut=highcut, fs=target_rate, order=order, btype=btype)
     
-
     return filtered_signal
 
 

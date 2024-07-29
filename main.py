@@ -4,11 +4,12 @@ import signal
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import numpy as np
-from emg_myoelectric_signal_processing import preprocess_emg, split_emg_data, apply_gain
-from mc_hand_startup import load_emg_data_csv
-import config, time, threading, check_trigno, argparse
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from emg_myoelectric_signal_processing import preprocess_emg, apply_gain
+import config, time, threading
 from collections import deque
-
+import pytrigno
 
 stop_event = threading.Event()  # Event to stop threads
 
@@ -18,7 +19,8 @@ def signal_handler(sig, frame):
     stop_event.set()  # Set the stop event to True
     sys.exit(0)  # Exit the program
 
-NUM_SENSORS = 0 
+signal.signal(signal.SIGINT, signal_handler)  # Register the signal handler
+
 ## INITIALIZE QUEUES
 class ThreadSafeQueue:
     def __init__(self, maxlen=1000):
@@ -59,30 +61,46 @@ prosthesis_setpoint_queue = ThreadSafeQueue(maxlen=10)
 
 
 def collect_data():
-    # Should be a while loop when getting real-time data
-    global raw_emg_queue
-    ### while True:
-    #raw_signal = load_emg_data_csv(file_path)
-    #while not stop_event.is_set():
-    for i in range(2):
-        raw_data = check_trigno.check_emg(active_channels=config.ACTIVE_CHANNELS, stop_event=stop_event)
-        raw_emg_queue.append(raw_data)
-        print(raw_data)
-    #time.sleep(1)
-    #if raw_emg_queue.is_full():
-    #        break
+    # Initialize connection to Trigno EMG
+    try:
+        dev = pytrigno.TrignoEMG(active_channels=config.ACTIVE_CHANNELS, samples_per_read=1000, # Note! Must have samples_per_read at least 1000 for filtfilt to work
+                            host='localhost', cmd_port=config.COMMAND_PORT, data_port=config.EMG_PORT, stop_event=stop_event)
+        dev.start()
 
-## NOte! For now Im not sure how the data will be collevted. Assuming it collects a block iof datapoints at a timme, so handle one block at a time
+    #while not stop_event.is_set():
+        for i in range(10):
+            raw_data = dev.read()
+            if raw_data is not None:
+                raw_emg_queue.append(raw_data)
+                #print(raw_data)
+            #else:
+            #   break  # Exit the loop if reading fails
+
+    except IOError as e:
+        print("Error reading EMG data:", e)
+        #break
+    except Exception as e:
+        print("Unknown error:", e)
+        #break
+
+    #if raw_emg_queue.is_full():
+      #  break
+    finally:
+        dev.stop()
+        dev.__del__() # Close sockets
+        print("EMG data collection stopped.")
+        
+
 def process_data():
-    global raw_emg_queue, preprocessed_emg_queue
     while not stop_event.is_set():
+        time.sleep(1)  # Idle loop to wait for data
         if not raw_emg_queue.is_empty():
             raw_signal = raw_emg_queue.get_last()  # Get the last raw signal from the queue
             raw_signal_gained = apply_gain(raw_signal, config.RAW_SIGNAL_GAIN)
             processed_emg = []
-            for raw_emg in split_emg_data(raw_signal_gained):
-                processed_emg.append(preprocess_emg(
-                    raw_emg,
+            for sensor in raw_signal_gained:
+                processed_emg.append(preprocess_emg( # Filter, rectify, and downsample the raw signal
+                    sensor,
                     original_rate=config.SENSOR_FREQ,
                     target_rate=config.PROCESSING_FREQ,
                     lowcut=config.FILTER_LOW_CUTOFF_FREQUENCY,
@@ -90,14 +108,83 @@ def process_data():
                     order=config.FILTER_ORDER,
                     btype=config.FILTER_BTYPE
                 ))
-            preprocessed_emg_queue.append(processed_emg)
+            preprocessed_emg_queue.append(processed_emg) # Add an array of the preprocessed data to all the sensors to the queue
+        else:
+            time.sleep(2)  # Idle loop to wait for data
+            print('Waiting for raw data...')
+            #break  # Exit the loop if there is no data in the queue
+
+
+
+def plot_data():
+    fig, ax = plt.subplots()
+
+    # Initialize an empty line for each channel
+    lines = []
+    for channel in range(len(config.ACTIVE_CHANNELS)):
+        line, = ax.plot([], [], label=f'Channel {channel+1}')
+        lines.append(line)
+
+    # Set plot parameters
+    ax.set_xlim(0, 10)
+    ax.set_ylim(-1, 1)
+    ax.set_xlabel('Time (samples)')
+    ax.set_ylabel('Amplitude')
+    ax.legend(loc='upper right')
+
+    # Capture the start time
+    start_time = time.time()
+
+    # Animation function
+    def animate(i):
+        if not preprocessed_emg_queue.is_empty():
+            # Get the last preprocessed data
+            data = preprocessed_emg_queue.get_last()
+            print('data in animate from preprocessed_queue:', data) 
+            # Calculate elapsed time
+            elapsed_time = time.time() - start_time
+            num_samples = len(data[0])  # Assuming data shape is (num_channels, num_samples)
+            print('num_samples:', num_samples)
+            time_vector = np.linspace(elapsed_time - num_samples/config.PROCESSING_FREQ, elapsed_time, num_samples)
+            
+            # Update each line with new data
+            for line, channel_data in zip(lines, data):
+                #line.set_data(range(len(channel_data)), channel_data)
+                line.set_data(time_vector, channel_data)
+
+            # Adjust x-axis to fit the latest data
+            ax.set_xlim(elapsed_time - 10, elapsed_time)  # 10-second rolling window
+        
+        return lines
+
+    # Set up the animation
+    ani = animation.FuncAnimation(fig, animate, blit=True, interval=50, cache_frame_data=False)
+
+    # Display the plot
+    plt.show()
 
 
 def main():
-    RAW_SIGNAL_GAIN = 1000  #Change this in lab 1
-    
-    collect_data()
+    collector_thread = threading.Thread(target=collect_data, name="DataCollectorThread", daemon=True)
+    processor_thread = threading.Thread(target=process_data, name="DataProcessorThread", daemon=True)
+    #plotting_thread = threading.Thread(target=plot_data)
+    # Start threads
+    collector_thread.start()
+    processor_thread.start()
+    #plotting_thread.start()
+    #while not stop_event.is_set():
+    plot_data()
+    # Wait for threads to finish
+    collector_thread.join()
+    processor_thread.join()
+    #plotting_thread.join()
+    #collect_data()
+    #process_data()
 
+    print("Threads stopped. Program exiting cleanly.")
+    print('raw_emg_queue:', raw_emg_queue.queue)
+    #print('Lenght of last element in raw_emg_queue:', len(raw_emg_queue.get_last()[0]))
+    print('preprocessed_emg_queue:', preprocessed_emg_queue.queue)
     # Register the signal handler
     #signal.signal(signal.SIGINT, signal_handler)
 

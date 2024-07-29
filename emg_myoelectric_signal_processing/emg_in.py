@@ -32,13 +32,7 @@ def split_emg_data(df):
     sensor_arrays = []  # List to store the arrays for each sensor
 
     for sensor_num in range(1, num_sensors + 1):
-        # Extract time and signal columns for the current sensor
-        time_column = f'Time_EMG_{sensor_num}'
-        signal_column = f'Signal_EMG_{sensor_num}'
         
-        time_data = df[time_column].values  # Get time data as a NumPy array
-        signal_data = df[signal_column].values  # Get signal data as a NumPy array
-
         # Combine time and signal data into a 2xN array
         sensor_array = np.vstack((time_data, signal_data))
         

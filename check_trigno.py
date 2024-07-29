@@ -30,13 +30,20 @@ def check_emg(host='localhost', active_channels=None, stop_event=None):
     
     data = dev.read()
     #assert data.shape == (5, 270)
-    return data
     dev.stop()
+    return data
 
+
+def read_emg(dev):
+    dev.start()
+    data = dev.read()
+    return data
 
 def stop_emg(dev):
     dev.stop()  
 
+def reset_emg(dev):
+    dev.reset()
 
 
 def check_accel(host):
