@@ -1,7 +1,12 @@
-import numpy as np
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-def apply_gain(signal, gain):
-    return signal * gain
+from classes import ThreadSafeState
+from mc_hand_startup import load_emg_data_csv
+import numpy as np
+import config
+from myoprocessor import sequential_control
 
 def saturate(signal, min_value=-5, max_value=5):
     """
@@ -24,7 +29,7 @@ def deadband(signal, threshold):
 # hand_gain and wrist gain 
 
 
-def to_prosthesis(hand_diff_signal, wrist_diff_signal, hand_gain, wrist_gain, threshold):
+def to_prosthesis(hand_diff_signal, wrist_diff_signal):
     """
     Process the hand and wrist difference signals to control the prosthesis. The two signals come from myoprocessor, which is made in lab 3.
     
@@ -39,16 +44,16 @@ def to_prosthesis(hand_diff_signal, wrist_diff_signal, hand_gain, wrist_gain, th
     - combined_signal: The array of processed hand and wrist signals.
     """
     # Apply gain
-    hand_signal = apply_gain(hand_diff_signal, hand_gain)
-    wrist_signal = apply_gain(wrist_diff_signal, wrist_gain)
+    hand_signal = hand_diff_signal * config.HAND_GAIN
+    wrist_signal = wrist_diff_signal*config.WRIST_GAIN
     
     # Saturate signals
-    hand_signal = saturate(hand_signal)
-    wrist_signal = saturate(wrist_signal)
+    hand_signal = saturate(hand_signal,-5,5)
+    wrist_signal = saturate(wrist_signal,-5,5)
     
     # Apply deadband
-    hand_signal = deadband(hand_signal, threshold)
-    wrist_signal = deadband(wrist_signal, threshold)
+    hand_signal = deadband(hand_signal, config.HAND_DEADBAND_TRESHOLD)
+    wrist_signal = deadband(wrist_signal, config.WRIST_DEADBAND_TRESHOLD)
     
     # Combine signals into an array
     combined_signal = np.array([hand_signal, wrist_signal])
@@ -57,17 +62,13 @@ def to_prosthesis(hand_diff_signal, wrist_diff_signal, hand_gain, wrist_gain, th
 
 # Example usage
 if __name__ == "__main__":
-    # Example input signals
-    hand_diff_signal = np.array([0.1, 3, 4, 6, -7, -4, -0.2])
-    wrist_diff_signal = np.array([1, 0.5, -3, 2, 5, -5.5, -1])
-    
-    # Gains and threshold
-    hand_gain = 2.0
-    wrist_gain = 1.5
-    threshold = 0.5
-    
+    cocontraction = ThreadSafeState()
+    hand_or_wrist = ThreadSafeState()
+
+    test_emg_signal = load_emg_data_csv('./test_data/processed_data_cocontraction.csv')
+    hand, wrist = sequential_control(test_emg_signal, hand_or_wrist, cocontraction)
     # Process the signals
-    combined_signal = to_prosthesis(hand_diff_signal, wrist_diff_signal, hand_gain, wrist_gain, threshold)
+    combined_signal = to_prosthesis(hand, wrist)
     
     # Output the result
     print("Processed signals:", combined_signal)
