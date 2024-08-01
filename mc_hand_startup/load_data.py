@@ -1,5 +1,6 @@
 import pandas as pd
 
+
 def load_emg_data_csv(file_path):
     """
     Load EMG data from a CSV file with European decimal and delimiter handling.

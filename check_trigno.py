@@ -56,7 +56,7 @@ def check_accel(host):
         assert data.shape == (3, 10)
     dev.stop()
 
-
+'''
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
@@ -69,3 +69,4 @@ if __name__ == '__main__':
 
     check_emg(args.host)
     #check_accel(args.host)
+'''

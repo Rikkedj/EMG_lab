@@ -2,11 +2,8 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from classes import ThreadSafeState
-from mc_hand_startup import load_emg_data_csv
 import numpy as np
 import config
-from myoprocessor import sequential_control
 
 def saturate(signal, min_value=-5, max_value=5):
     """
@@ -62,6 +59,7 @@ def to_prosthesis(hand_diff_signal, wrist_diff_signal):
 
 # Example usage
 if __name__ == "__main__":
+    '''
     cocontraction = ThreadSafeState()
     hand_or_wrist = ThreadSafeState()
 
@@ -72,4 +70,4 @@ if __name__ == "__main__":
     
     # Output the result
     print("Processed signals:", combined_signal)
-
+    '''

@@ -1,5 +1,9 @@
 from collections import deque
 import threading
+import config
+import numpy as np
+
+
 
 class ThreadSafeQueue:
     def __init__(self, maxlen=1000):
@@ -50,4 +54,49 @@ class ThreadSafeState:
     def get_prev_state(self):
         with self._lock:
             return self._prev_state
-        
+    
+'''
+class DataWindow():
+    def __init__(self, window_size):
+        self.window = np.zeros(maxlen=window_size)
+        self.lock = threading.Lock()
+'''
+''' Class for configuration values, so that it can easily be refressed during runtime. '''
+class Config:
+    def __init__(self):
+        self.TCU_IP = config.TCU_IP
+        self.COMMAND_PORT = config.COMMAND_PORT
+        self.EMG_PORT = config.EMG_PORT
+        self.ACC_PORT = config.ACC_PORT
+        self.ACTIVE_CHANNELS = config.ACTIVE_CHANNELS
+        self.SENSOR_FREQ = config.SENSOR_FREQ
+        self.PROCESSING_FREQ = config.PROCESSING_FREQ
+        self.RAW_SIGNAL_GAIN = config.RAW_SIGNAL_GAIN
+        self.RECTIFIED_SIGNAL_GAIN = config.RECTIFIED_SIGNAL_GAIN
+        self.FILTER_LOW_CUTOFF_FREQUENCY = config.FILTER_LOW_CUTOFF_FREQUENCY
+        self.FILTER_HIGH_CUTOFF_FREQUENCY = config.FILTER_HIGH_CUTOFF_FREQUENCY
+        self.FILTER_ORDER = config.FILTER_ORDER
+        self.FILTER_BTYPE = config.FILTER_BTYPE
+        self.HAND_DEADBAND_TRESHOLD = config.HAND_DEADBAND_TRESHOLD
+        self.WRIST_DEADBAND_TRESHOLD = config.WRIST_DEADBAND_TRESHOLD
+        self.HAND_GAIN = config.HAND_GAIN
+        self.WRIST_GAIN = config.WRIST_GAIN
+
+    def refresh(self):
+        self.TCU_IP = config.TCU_IP
+        self.COMMAND_PORT = config.COMMAND_PORT
+        self.EMG_PORT = config.EMG_PORT
+        self.ACC_PORT = config.ACC_PORT
+        self.ACTIVE_CHANNELS = config.ACTIVE_CHANNELS
+        self.SENSOR_FREQ = config.SENSOR_FREQ
+        self.PROCESSING_FREQ = config.PROCESSING_FREQ
+        self.RAW_SIGNAL_GAIN = config.RAW_SIGNAL_GAIN
+        self.RECTIFIED_SIGNAL_GAIN = config.RECTIFIED_SIGNAL_GAIN
+        self.FILTER_LOW_CUTOFF_FREQUENCY = config.FILTER_LOW_CUTOFF_FREQUENCY
+        self.FILTER_HIGH_CUTOFF_FREQUENCY = config.FILTER_HIGH_CUTOFF_FREQUENCY
+        self.FILTER_ORDER = config.FILTER_ORDER
+        self.FILTER_BTYPE = config.FILTER_BTYPE
+        self.HAND_DEADBAND_TRESHOLD = config.HAND_DEADBAND_TRESHOLD
+        self.WRIST_DEADBAND_TRESHOLD = config.WRIST_DEADBAND_TRESHOLD
+        self.HAND_GAIN = config.HAND_GAIN
+        self.WRIST_GAIN = config.WRIST_GAIN
