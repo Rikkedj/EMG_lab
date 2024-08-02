@@ -26,7 +26,7 @@ def deadband(signal, threshold):
 # hand_gain and wrist gain 
 
 
-def to_prosthesis(hand_diff_signal, wrist_diff_signal):
+def prosthesis_signals(hand_diff_signal, wrist_diff_signal):
     """
     Process the hand and wrist difference signals to control the prosthesis. The two signals come from myoprocessor, which is made in lab 3.
     
@@ -41,7 +41,7 @@ def to_prosthesis(hand_diff_signal, wrist_diff_signal):
     - combined_signal: The array of processed hand and wrist signals.
     """
     # Apply gain
-    hand_signal = hand_diff_signal * config.HAND_GAIN
+    hand_signal = hand_diff_signal*config.HAND_GAIN
     wrist_signal = wrist_diff_signal*config.WRIST_GAIN
     
     # Saturate signals
@@ -57,17 +57,3 @@ def to_prosthesis(hand_diff_signal, wrist_diff_signal):
     
     return combined_signal
 
-# Example usage
-if __name__ == "__main__":
-    '''
-    cocontraction = ThreadSafeState()
-    hand_or_wrist = ThreadSafeState()
-
-    test_emg_signal = load_emg_data_csv('./test_data/processed_data_cocontraction.csv')
-    hand, wrist = sequential_control(test_emg_signal, hand_or_wrist, cocontraction)
-    # Process the signals
-    combined_signal = to_prosthesis(hand, wrist)
-    
-    # Output the result
-    print("Processed signals:", combined_signal)
-    '''

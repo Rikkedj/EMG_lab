@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.signal import butter, filtfilt
 import config
+import time
 
 def butter_filter(lowcut=None, highcut=None, fs=1.0, order=4, btype='low'):
     """
@@ -51,10 +52,6 @@ def filter_signal(emg_signal, lowcut=None, highcut=None, fs=1.0, order=4, btype=
     return filtered_signal
 
 
-'''
-Preprocessiing signal. Have to seperate the signals into subarrays before processing.
-'''
-
 def downsample(signal, original_rate, target_rate):
     factor = int(original_rate / target_rate)
     if factor <= 0:
@@ -67,6 +64,27 @@ def downsample(signal, original_rate, target_rate):
     downsampled_signal = trimmed_signal.reshape(-1, factor).mean(axis=1)
     return downsampled_signal
 
+
+def preprocess_raw_data(raw_emg_queue, preprocessed_emg_queue): # Change queue to window
+    if not raw_emg_queue.is_empty():
+        raw_signal = raw_emg_queue.get_last()  # Get the last raw signal from the queue 
+        processed_emg = []
+        for sensor in raw_signal:
+            rectified = np.abs(sensor)
+            downsampled = downsample(rectified, original_rate=config.SENSOR_FREQ, target_rate=config.PROCESSING_FREQ)
+            gained = downsampled * config.RECTIFIED_SIGNAL_GAIN
+            filtered = filter_signal(gained, lowcut=config.FILTER_LOW_CUTOFF_FREQUENCY, highcut=config.FILTER_HIGH_CUTOFF_FREQUENCY, fs=config.PROCESSING_FREQ, order=config.FILTER_ORDER, btype=config.FILTER_BTYPE)
+            processed_emg.append(filtered) # Filter, rectify, and downsample the raw signal
+
+        preprocessed_emg_queue.append(processed_emg) # Add an array of the preprocessed data to all the sensors to the queue
+        return processed_emg
+    else:
+        time.sleep(2)
+        print('Waiting for raw data...')
+
+
+
+'''
 def preprocess_emg(signal, original_rate=2000, target_rate=33.3, lowcut=None, highcut=None, order=4, btype='low'):
     """
     Preprocess the EMG signal: rectify, downsample, and filter.
@@ -87,6 +105,4 @@ def preprocess_emg(signal, original_rate=2000, target_rate=33.3, lowcut=None, hi
     
     return filtered_signal
 
-
-
-
+'''

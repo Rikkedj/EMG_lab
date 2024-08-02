@@ -60,6 +60,8 @@ class DataWindow():
     def __init__(self, window_size):
         self.window = np.zeros(maxlen=window_size)
         self.lock = threading.Lock()
+        if self.queue.maxlen is not None and len(self.queue) >= self.queue.maxlen:
+            self.queue.popleft()
 '''
 ''' Class for configuration values, so that it can easily be refressed during runtime. '''
 class Config:
