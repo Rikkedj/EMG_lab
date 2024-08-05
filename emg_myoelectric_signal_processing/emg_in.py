@@ -7,7 +7,7 @@ def trigno_startup(stop_event):
     try:
         start_conn = time.time()
         print("Connecting to Trigno EMG device...", start_conn)
-        dev = pytrigno.TrignoEMG(active_channels=config.ACTIVE_CHANNELS, samples_per_read=1000, # Note! Must have samples_per_read at least 1000 for filtfilt to work
+        dev = pytrigno.TrignoEMG(active_channels=config.ACTIVE_CHANNELS, samples_per_read=2000, # Note! Must have samples_per_read at least 1000 for filtfilt to work
                             host='localhost', cmd_port=config.COMMAND_PORT, data_port=config.EMG_PORT, stop_event=stop_event)
         dev.start()
         end_conn = time.time()

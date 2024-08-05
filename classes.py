@@ -6,7 +6,7 @@ import numpy as np
 
 
 class ThreadSafeQueue:
-    def __init__(self, maxlen=1000):
+    def __init__(self, maxlen=100):
         self.queue = deque(maxlen=maxlen)  # Use deque for efficient appending and popping
         self.lock = threading.Lock()  # Lock for thread safety
 
@@ -55,14 +55,21 @@ class ThreadSafeState:
         with self._lock:
             return self._prev_state
     
-'''
-class DataWindow():
-    def __init__(self, window_size):
-        self.window = np.zeros(maxlen=window_size)
+
+class DataWindow:
+    def __init__(self, num_channels, window_size):
+        #self.window = np.zeros(maxlen=window_size)
+        self.sensors = deque(maxlen=num_channels)
+        for i in range(num_channels):
+            self.sensors.window = self.sensors.append(deque(maxlen=window_size))
         self.lock = threading.Lock()
-        if self.queue.maxlen is not None and len(self.queue) >= self.queue.maxlen:
-            self.queue.popleft()
-'''
+
+    def write(self, data):
+        with self.lock:
+            if len(self.window) == self.window.maxlen:
+                self.window.popleft()
+            self.window.append(data)
+
 ''' Class for configuration values, so that it can easily be refressed during runtime. '''
 class Config:
     def __init__(self):
@@ -89,7 +96,7 @@ class Config:
         self.COMMAND_PORT = config.COMMAND_PORT
         self.EMG_PORT = config.EMG_PORT
         self.ACC_PORT = config.ACC_PORT
-        self.ACTIVE_CHANNELS = config.ACTIVE_CHANNELS
+        #self.ACTIVE_CHANNELS = config.ACTIVE_CHANNELS # No need to refresh this, cant be changed when connection is established
         self.SENSOR_FREQ = config.SENSOR_FREQ
         self.PROCESSING_FREQ = config.PROCESSING_FREQ
         self.RAW_SIGNAL_GAIN = config.RAW_SIGNAL_GAIN

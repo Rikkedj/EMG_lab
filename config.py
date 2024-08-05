@@ -11,7 +11,7 @@ EMG_PORT = 50043
 ACC_PORT = 50044
 
 # List of the of EMG sources in use
-ACTIVE_CHANNELS = [10,13]
+ACTIVE_CHANNELS = [9,15]
 
 ## EMG Preprocessing values
 SENSOR_FREQ = 2000
@@ -28,6 +28,9 @@ WRIST_DEADBAND_TRESHOLD = 0.7
 HAND_GAIN = 1.3
 WRIST_GAIN = 1.3
 
+## Sekvensiell styring (del 3)
+HYSTERESIS_THRESHOLD = 3
+HYSTERESIS_WIDTH = 1
 
 
 

@@ -3,19 +3,12 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import numpy as np
-from classes import ThreadSafeState
-from mc_hand_startup import load_emg_data_csv
-import time
+import config
 
-
-## Sekvensiell styring (del 3)
-HYSTERESIS_THRESHOLD = 3
-HYSTERESIS_WIDTH = 1
-#test_emg_signal = load_emg_data_csv('./test_data/processed_data_cocontraction.csv')
 
 def hysteresis(signal, prev_state, threshold, width):
     """
-    Apply hysteresis to the signal. If the signal is above the threshold, set it to 1. If the signal is below the threshold minus the width, set it to 0. Otherwise, keep the previous value.
+    Apply hysteresis to the signal. If the signal is above the threshold+width, set it to 1. If the signal is below the threshold minus the width, set it to 0. Otherwise, keep the previous value.
     
     Parameters:
     - signal: The preprocessed myosignal from a single sensor. Only one value.
@@ -64,8 +57,8 @@ def sequential_control(processed_signal, hand_or_wrist_state, cocontraction_stat
     for i in range(len(processed_signal[0])):
         signal1 = processed_signal[0][i]
         signal2 = processed_signal[1][i]
-        hyst_emg1 = hysteresis(signal=processed_signal[0][i], prev_state=prev_cocontraction_active, threshold=HYSTERESIS_THRESHOLD, width=HYSTERESIS_WIDTH)
-        hyst_emg2 = hysteresis(signal=processed_signal[1][i], prev_state=prev_cocontraction_active, threshold=HYSTERESIS_THRESHOLD, width=HYSTERESIS_WIDTH)
+        hyst_emg1 = hysteresis(signal=processed_signal[0][i], prev_state=prev_cocontraction_active, threshold=config.HYSTERESIS_THRESHOLD, width=config.HYSTERESIS_WIDTH)
+        hyst_emg2 = hysteresis(signal=processed_signal[1][i], prev_state=prev_cocontraction_active, threshold=config.HYSTERESIS_THRESHOLD, width=config.HYSTERESIS_WIDTH)
         if hyst_emg1 and hyst_emg2:
             cocontraction_active = True
             cocontraction_state.set_state(cocontraction_active)
@@ -96,18 +89,3 @@ def sequential_control(processed_signal, hand_or_wrist_state, cocontraction_stat
     hand_array = np.array(hand_array, dtype=np.float64)
     wrist_array = np.array(wrist_array, dtype=np.float64)
     return hand_array, wrist_array
-
-def main():
-    '''
-    start_time = time.process_time()
-    print('start time control:', start_time)
-    hand, wrist = sequential_control(test_emg_signal, hand_or_wrist, cocontraction)
-    end_time = time.process_time()
-    print('end time control:', end_time)
-    print('time spent in control:', end_time-start_time)
-    #print('hand:', hand)
-    #print('wrist:', wrist)
-    '''
-
-#if __name__ == "__main__":
-#    main()

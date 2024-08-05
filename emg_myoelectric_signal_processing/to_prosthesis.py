@@ -21,10 +21,6 @@ def deadband(signal, threshold):
     """
     return np.where(np.abs(signal) < threshold, 0, signal)
 
-## Need to send signal to NI DAQ
-# order
-# hand_gain and wrist gain 
-
 
 def prosthesis_signals(hand_diff_signal, wrist_diff_signal):
     """

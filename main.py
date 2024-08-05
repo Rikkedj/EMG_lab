@@ -68,25 +68,29 @@ def prosthesis_setpoints(hand_controll, wrist_controll):
     
 
 
-
-
 def main():
     # Initialize connection to Trigno EMG
     dev = emg_in.trigno_startup(stop_event=stop_event)
 
     while not stop_event.is_set():
         raw_data = emg_in.read_raw_data(dev, raw_emg_queue)
+        print('size raw data:', len(raw_data[0]))
         #print("length raw emg queue", len(raw_emg_queue.queue))
         preprocessed_data = emg_preprocessing.preprocess_raw_data(raw_emg_queue, preprocessed_emg_queue)
+        print('size preprocessed data:', len(preprocessed_data[0]))
         #print("lenght processed emg queue", len(preprocessed_emg_queue.queue))    
         #print("preprocessed data", preprocessed_data)
-        hand_controll, wrist_controll = myoprocessor_controll(hand_or_wrist, cocontraction)
-        setpoints = prosthesis_setpoints(hand_controll, wrist_controll)
-        print('prosthesis_setpoint:', setpoints)
-        write_to_daq(prosthesis_setpoint_queue)
+        #hand_controll, wrist_controll = myoprocessor_controll(hand_or_wrist, cocontraction)
+        #print('hand_controll:', hand_controll)
+        #print('wrist_controll:', wrist_controll)
+        #setpoints = prosthesis_setpoints(hand_controll, wrist_controll)
+        #print('prosthesis_setpoint:', setpoints)
+        #write_to_daq(prosthesis_setpoint_queue)
 
 
     emg_in.stop_trigno(dev)
+
+    #plots.plot_raw_signal(raw_emg_queue, stop_event)
 
     # Start plotting threads
     #raw_plot_thread = threading.Thread(target=plots.plot_raw_signal, args=(raw_emg_queue, stop_event))
@@ -121,7 +125,6 @@ def main():
     processing_thread.start()
     
     # Start plotting in the main thread
-    #plots.plot_raw_signal(raw_emg_queue, stop_event)
     #plots.plot_preprocessed_signal(preprocessed_emg_queue, stop_event)
     plots.plot_prosthesis_setpoints(prosthesis_setpoint_queue, stop_event)
 
