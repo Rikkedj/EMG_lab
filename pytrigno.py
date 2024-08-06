@@ -22,7 +22,6 @@ SOFTWARE.
 import socket
 import struct
 import numpy
-import time
 
 class _BaseTrignoDaq(object):
     """
@@ -225,7 +224,7 @@ class TrignoEMG(_BaseTrignoDaq):
         units.
     """
 
-    def __init__(self, channel_range=None, active_channels=None, samples_per_read=10, units='V',
+    def __init__(self, channel_range=None, active_channels=None, samples_per_read=2000, units='V',
                  host='localhost', cmd_port=50040, data_port=50041, timeout=10, stop_event=None):
         super(TrignoEMG, self).__init__(
             host=host, cmd_port=cmd_port, data_port=data_port,

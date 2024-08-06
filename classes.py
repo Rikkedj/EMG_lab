@@ -6,12 +6,13 @@ import numpy as np
 
 
 class ThreadSafeQueue:
-    def __init__(self, maxlen=100):
+    def __init__(self, maxlen=10):
         self.queue = deque(maxlen=maxlen)  # Use deque for efficient appending and popping
         self.lock = threading.Lock()  # Lock for thread safety
 
     def append(self, item):
         with self.lock:
+            # here you should check if the data is new amnd handle if the queue is full
             self.queue.append(item)
 
     def get_last(self):
@@ -23,7 +24,14 @@ class ThreadSafeQueue:
                 return self.queue[-1]
             else:
                 return None  # or raise an exception, depending on your use case
-
+    
+    def get_copy(self):
+        """
+        Returns a copy of the entire queue.
+        """
+        with self.lock:
+            return list(self.queue)  # Return a shallow copy of the queue as a list
+        
     def is_full(self):
         with self.lock:
             return len(self.queue) >= self.queue.maxlen
@@ -55,13 +63,13 @@ class ThreadSafeState:
         with self._lock:
             return self._prev_state
     
-
+'''
 class DataWindow:
     def __init__(self, num_channels, window_size):
         #self.window = np.zeros(maxlen=window_size)
         self.sensors = deque(maxlen=num_channels)
         for i in range(num_channels):
-            self.sensors.window = self.sensors.append(deque(maxlen=window_size))
+            self.sensors.append(deque(maxlen=window_size))
         self.lock = threading.Lock()
 
     def write(self, data):
@@ -69,7 +77,7 @@ class DataWindow:
             if len(self.window) == self.window.maxlen:
                 self.window.popleft()
             self.window.append(data)
-
+'''
 ''' Class for configuration values, so that it can easily be refressed during runtime. '''
 class Config:
     def __init__(self):
