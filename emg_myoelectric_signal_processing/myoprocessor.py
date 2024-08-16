@@ -59,14 +59,13 @@ def sequential_control(processed_signal, hand_or_wrist_state, cocontraction_stat
         signal2 = processed_signal[1][i]
         hyst_emg1 = hysteresis(signal=processed_signal[0][i], prev_state=prev_cocontraction_active, threshold=config.HYSTERESIS_THRESHOLD, width=config.HYSTERESIS_WIDTH)
         hyst_emg2 = hysteresis(signal=processed_signal[1][i], prev_state=prev_cocontraction_active, threshold=config.HYSTERESIS_THRESHOLD, width=config.HYSTERESIS_WIDTH)
+        # Må lage denne mer generell, hvis man vil bruke flere sensorer
         if hyst_emg1 and hyst_emg2:
             cocontraction_active = True
             cocontraction_state.set_state(cocontraction_active)
-            print('Cocontraction active')
         else: 
             cocontraction_active = False
             cocontraction_state.set_state(cocontraction_active)
-            print('Cocontraction not active')
     
         prev_cocontraction_active = cocontraction_state.get_prev_state()
 
@@ -74,11 +73,9 @@ def sequential_control(processed_signal, hand_or_wrist_state, cocontraction_stat
             hand_or_wrist_state.set_state(not hand_or_wrist_state.get_state()) # switch state
         
         if hand_or_wrist_state.get_state():
-            print("wrist state")
             hand_diff_signal = 0
             wrist_diff_signal = processed_signal[0][i] - processed_signal[1][i]
         else:
-            print("hand state")
             hand_diff_signal = processed_signal[0][i] - processed_signal[1][i]
             wrist_diff_signal = 0
 

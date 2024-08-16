@@ -214,6 +214,7 @@ class TrignoEMG(_BaseTrignoDaq):
         configurable through the TCU graphical user interface.
     timeout : float, optional
         Number of seconds before socket returns a timeout exception.
+    stop_event: threading.Event, optional for handling interrupts while running
 
     Attributes
     ----------

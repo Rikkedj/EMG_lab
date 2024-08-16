@@ -30,9 +30,9 @@ signal.signal(signal.SIGINT, signal_handler)  # Register the signal handler
 
 # Initialize queues for raw data, processed data, and prosthesis setpoints
 WINDOW_SIZE = 5
-raw_emg_queue = ThreadSafeQueue(maxlen=WINDOW_SIZE)
-preprocessed_emg_queue = ThreadSafeQueue(maxlen=WINDOW_SIZE)
-prosthesis_setpoint_queue = ThreadSafeQueue(maxlen=WINDOW_SIZE)
+raw_emg_queue = ThreadSafeQueue(window_size=WINDOW_SIZE)
+preprocessed_emg_queue = ThreadSafeQueue(window_size=WINDOW_SIZE)
+prosthesis_setpoint_queue = ThreadSafeQueue(window_size=WINDOW_SIZE)
 
 # Initialize states for hand/wrist control and cocontraction
 cocontraction = ThreadSafeState()
@@ -44,7 +44,7 @@ Myoprocessor function proposed solution.'''
 def myoprocessor_controll(hand_or_wrist, cocontraction):
     if not preprocessed_emg_queue.is_empty():
         start_controlled = time.process_time_ns()
-        processed_emg = preprocessed_emg_queue.get_last()  # Get the last preprocessed signal from the queue
+        sample_index, processed_emg = preprocessed_emg_queue.get_last()  # Get the last preprocessed signal from the queue
         #print('Starting sequential control...', start_controlled)
         hand_controll, wrist_controll = myoprocessor.sequential_control(processed_emg, hand_or_wrist, cocontraction)
         end_controlled = time.process_time_ns()
@@ -107,33 +107,45 @@ def main():
         while not stop_event.is_set():
             try:
                 raw_data = emg_in.read_raw_data(dev, raw_emg_queue=raw_emg_queue)
-                print('raw_emg_queue:', raw_emg_queue.queue)
+               # print('raw_emg_queue:', raw_emg_queue.queue)
                 preprocessed_data = emg_preprocessing.preprocess_raw_data(raw_emg_queue=raw_emg_queue, preprocessed_emg_queue=preprocessed_emg_queue)
-                print('preprocessed_emg_queue:', preprocessed_emg_queue.queue)
+               # print('preprocessed_emg_queue:', preprocessed_emg_queue.queue)
                 hand_controll, wrist_controll = myoprocessor_controll(hand_or_wrist, cocontraction)
-                print('hand_controll:', hand_controll)
-                print('wrist_controll:', wrist_controll)
+                #print('hand_controll:', hand_controll)
+                #print('wrist_controll:', wrist_controll)
                 setpoints = prosthesis_setpoints(hand_controll, wrist_controll)
-                print('prosthesis_setpoint:', setpoints)
+                #print('prosthesis_setpoint:', setpoints)
 
             except Exception as e:
                 print("Unknown error:", e)
                 stop_event.set()
                 break
     
+    def write_daq_thread():
+        while not stop_event.is_set():
+            try:
+                time.sleep(0.1)
+                write_to_daq(prosthesis_setpoint_queue)
+            except Exception as e:
+                print("Unknown error:", e)
+                stop_event.set()
+
     # Start data processing thread
     processing_thread = threading.Thread(target=data_processing_thread)
+    #daq_thread = threading.Thread(target=write_daq_thread)
     processing_thread.start()
+    #daq_thread.start()
     
     # Start plotting in the main thread
-    plots.plot_all_signals(raw_emg_queue, preprocessed_emg_queue, prosthesis_setpoint_queue, stop_event)
+    plots.plot_all_signals(raw_emg_queue=raw_emg_queue, preprocessed_emg_queue=preprocessed_emg_queue, prosthesis_setpoint_queue=prosthesis_setpoint_queue, stop_event=stop_event)
+   
 
     #plots.plot_preprocessed_signal(preprocessed_emg_queue, stop_event)
     #plots.plot_prosthesis_setpoints(prosthesis_setpoint_queue, stop_event)
 
     # Wait for data processing thread to finish
     processing_thread.join()
-    
+    #daq_thread.join()    
 '''
     while not stop_event.is_set():
         try:

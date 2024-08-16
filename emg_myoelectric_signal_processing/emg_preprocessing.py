@@ -56,7 +56,7 @@ def preprocess_raw_data(raw_emg_queue, preprocessed_emg_queue): # Change queue t
     - preprocessed_emg_queue: The queue to append the preprocessed data to.
     """
     if not raw_emg_queue.is_empty():
-        raw_signal = raw_emg_queue.get_last()  # Get the last raw signal from the queue 
+        sample_index, raw_signal = raw_emg_queue.get_last()  # Get the last raw signal from the queue 
         processed_emg = []
         for sensor in raw_signal:
             rectified = np.abs(sensor)
