@@ -15,6 +15,8 @@ def plot_all_signals(raw_emg_queue, preprocessed_emg_queue, prosthesis_setpoint_
     window_raw = int(config.SENSOR_FREQ*raw_emg_queue.window_size)
     window_pros = int(config.PROCESSING_FREQ*preprocessed_emg_queue.window_size)
     step_size_raw  = int(config.SENSOR_FREQ)
+    #step_size_raw  = 2
+   
     step_size_pros = int(config.PROCESSING_FREQ)
 
     # Raw emg

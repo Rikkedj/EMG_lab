@@ -9,8 +9,11 @@ import plots
 from emg_myoelectric_signal_processing import emg_in, emg_preprocessing, myoprocessor, to_prosthesis
 import config, time, threading
 import pytrigno
+import pyserial
 from classes import ThreadSafeState, ThreadSafeQueue
-from niDAQ import write_to_daq
+import serial.tools.list_ports
+import serial
+
 
 #plt.switch_backend('Qt5Agg')  # Alternative: 
 plt.switch_backend('TkAgg')
@@ -71,6 +74,7 @@ def prosthesis_setpoints(hand_controll, wrist_controll):
 
 def main():
     # Initialize connection to Trigno EMG
+    
     '''
     while not stop_event.is_set():
         raw_data = emg_in.read_raw_data(dev, raw_emg_queue)
@@ -91,6 +95,7 @@ def main():
     emg_in.stop_trigno(dev)
     '''
 
+
     # Start plotting threads
     #raw_plot_thread = threading.Thread(target=plots.plot_raw_signal, args=(raw_emg_queue, stop_event))
     #preprocessed_plot_thread = threading.Thread(target=plots.plot_preprocessed_signal, args=(preprocessed_emg_queue, stop_event))
@@ -99,14 +104,30 @@ def main():
     #raw_plot_thread.start()
     #preprocessed_plot_thread.start()
     #setpoints_plot_thread.start()
-
+ 
     dev = emg_in.trigno_startup(stop_event=stop_event)
-
+    SERIAL_PORT = 'COM6'  # Replace 'COM3' with your port
+    ser = serial.Serial(SERIAL_PORT, baudrate=9600, timeout=1)  # Open serial port
     # Define threads for data processing
     def data_processing_thread():
+        fig, ax = plt.subplots()
+        line, = ax.plot([], [], lw=2)  # Line object to be updated
+        ax.set_ylim(-1, 1)  # Adjust according to your EMG signal range
+        ax.set_xlim(0, 100)  # Adjust this based on how much data you want to plot at once
+        ax.set_title("Real-Time EMG Data")
+        ax.set_xlabel("Time")
+        ax.set_ylabel("Amplitude")
+
+        data_buffer = []
         while not stop_event.is_set():
+        #for i in range(2):
             try:
                 raw_data = emg_in.read_raw_data(dev, raw_emg_queue=raw_emg_queue)
+                data_buffer.append(raw_data) 
+                if len(data_buffer) > 100:
+                    data_buffer.pop(0)  
+
+                line.set_data(range(len(data_buffer)), data_buffer)
                # print('raw_emg_queue:', raw_emg_queue.queue)
                 preprocessed_data = emg_preprocessing.preprocess_raw_data(raw_emg_queue=raw_emg_queue, preprocessed_emg_queue=preprocessed_emg_queue)
                # print('preprocessed_emg_queue:', preprocessed_emg_queue.queue)
@@ -115,21 +136,16 @@ def main():
                 #print('wrist_controll:', wrist_controll)
                 setpoints = prosthesis_setpoints(hand_controll, wrist_controll)
                 #print('prosthesis_setpoint:', setpoints)
+                if ser.is_open:
+                    pyserial.write_to_hand(ser=ser, setpoints=setpoints)
+                else:
+                    print("Serial port is not open")
 
             except Exception as e:
                 print("Unknown error:", e)
                 stop_event.set()
                 break
     
-    def write_daq_thread():
-        while not stop_event.is_set():
-            try:
-                time.sleep(0.1)
-                write_to_daq(prosthesis_setpoint_queue)
-            except Exception as e:
-                print("Unknown error:", e)
-                stop_event.set()
-
     # Start data processing thread
     processing_thread = threading.Thread(target=data_processing_thread)
     #daq_thread = threading.Thread(target=write_daq_thread)
@@ -137,7 +153,7 @@ def main():
     #daq_thread.start()
     
     # Start plotting in the main thread
-    plots.plot_all_signals(raw_emg_queue=raw_emg_queue, preprocessed_emg_queue=preprocessed_emg_queue, prosthesis_setpoint_queue=prosthesis_setpoint_queue, stop_event=stop_event)
+    #plots.plot_all_signals(raw_emg_queue=raw_emg_queue, preprocessed_emg_queue=preprocessed_emg_queue, prosthesis_setpoint_queue=prosthesis_setpoint_queue, stop_event=stop_event)
    
 
     #plots.plot_preprocessed_signal(preprocessed_emg_queue, stop_event)
@@ -145,7 +161,10 @@ def main():
 
     # Wait for data processing thread to finish
     processing_thread.join()
+    #ser.close()  # Close serial port
+
     #daq_thread.join()    
+
 '''
     while not stop_event.is_set():
         try:
