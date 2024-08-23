@@ -3,7 +3,7 @@ from scipy.signal import butter, filtfilt
 import config
 import time
 
-def butter_filter(lowcut=None, highcut=None, fs=1.0, order=4, btype='low'):
+def butter_filter(lowcut=None, fs=1.0, order=4, btype='low'):
     """
     Apply a Butterworth filter to the signal depending on the btype.
     
@@ -19,7 +19,6 @@ def butter_filter(lowcut=None, highcut=None, fs=1.0, order=4, btype='low'):
     if lowcut is not None:
         low = lowcut / nyq
 
-    # Ensure the parameters make sense for the specified filter type
     if btype == 'low':
         b, a = butter(order, low, btype='low')
     else:
@@ -57,8 +56,35 @@ def preprocess_raw_data(raw_emg_queue, preprocessed_emg_queue): # Change queue t
     """
     if not raw_emg_queue.is_empty():
         sample_index, raw_signal = raw_emg_queue.get_last()  # Get the last raw signal from the queue 
+        print('Preprocessing index: ', sample_index)
         processed_emg = []
         for sensor in raw_signal:
+            rectified = np.abs(sensor)
+            downsampled = downsample(rectified, original_rate=config.SENSOR_FREQ, target_rate=config.PROCESSING_FREQ)
+            gained = downsampled * config.RECTIFIED_SIGNAL_GAIN
+            filtered = filter_signal(emg_signal=gained, lowcut=config.FILTER_LOW_CUTOFF_FREQUENCY, fs=config.PROCESSING_FREQ, order=config.FILTER_ORDER, btype='low')
+            correct_mean = filtered - np.mean(filtered)
+
+            processed_emg.append(correct_mean) # Filter, rectify, and downsample the raw signal
+
+        preprocessed_emg_queue.append(processed_emg) # Add an array of the preprocessed data to all the sensors to the queue
+        return processed_emg
+    else:
+        time.sleep(2)
+        print('Waiting for raw data...')
+
+
+def preprocess_raw_data_directly(raw_data, preprocessed_emg_queue): # Change queue to window
+    """
+    Preprocess the EMG signal: rectify, downsample, and filter.
+    
+    Parameters:
+    - raw_emg_queue: The queue containing the raw EMG data.
+    - preprocessed_emg_queue: The queue to append the preprocessed data to.
+    """
+    if not raw_data is None:
+        processed_emg = []
+        for sensor in raw_data:
             rectified = np.abs(sensor)
             downsampled = downsample(rectified, original_rate=config.SENSOR_FREQ, target_rate=config.PROCESSING_FREQ)
             gained = downsampled * config.RECTIFIED_SIGNAL_GAIN
@@ -72,5 +98,3 @@ def preprocess_raw_data(raw_emg_queue, preprocessed_emg_queue): # Change queue t
     else:
         time.sleep(2)
         print('Waiting for raw data...')
-
-

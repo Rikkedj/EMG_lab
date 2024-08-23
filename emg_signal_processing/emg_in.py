@@ -23,13 +23,13 @@ def trigno_startup(stop_event):
     
 def read_raw_data(dev, raw_emg_queue): # Change queue to window
     try:
-        start_read = time.time()
         raw_data = dev.read()
         raw_data_gained = raw_data*config.RAW_SIGNAL_GAIN
+        
         if raw_data is not None:
             raw_emg_queue.append(raw_data_gained)
-            end_append = time.time()
-        return raw_data
+            
+        return raw_data_gained
     
     except IOError as e:
         print("Error reading EMG data:", e)

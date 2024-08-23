@@ -14,7 +14,7 @@ class ThreadSafeQueue:
 
     def append(self, item):
         with self.lock:
-            # here you should check if the data is new amnd handle if the queue is full
+            # here you should check if the data is new and handle if the queue is full
             self.queue.append(item)
             self._sample_num += 1
 
@@ -88,7 +88,7 @@ class DataWindow:
         with self.condition:
             while self.count == last_count:
                 self.condition.wait()
-                
+
             return list(self.window)
 
 

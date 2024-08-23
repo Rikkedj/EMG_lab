@@ -11,7 +11,7 @@ EMG_PORT = 50043
 ACC_PORT = 50044
 
 # List of the of EMG sources in use
-ACTIVE_CHANNELS = [11,13]
+ACTIVE_CHANNELS = [6,7]
 
 ## EMG Preprocessing values
 SENSOR_FREQ = 2000

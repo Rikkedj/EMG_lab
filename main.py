@@ -6,28 +6,23 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import numpy as np
 import matplotlib.pyplot as plt
 import plots
-from emg_myoelectric_signal_processing import emg_in, emg_preprocessing, myoprocessor, to_prosthesis
+from emg_signal_processing import emg_in, emg_preprocessing, myoprocessor, to_prosthesis
 import config, time, threading
-import pytrigno
-import pyserial
+import pytrigno, pyserial
 from classes import ThreadSafeState, ThreadSafeQueue
 import serial.tools.list_ports
 import serial
+import matplotlib.animation as animation
 
 
-#plt.switch_backend('Qt5Agg')  # Alternative: 
 plt.switch_backend('TkAgg')
 
-'''
-To handle keyboard interruptions, like ctrl-c, we need a signal handler and an event to be passed to the threads.
-'''
-stop_event = threading.Event()  # Event to stop threads
-
+# Event to stop threads. To handle keyboard interruptions, like ctrl-c, we need a signal handler and an event to be passed to the threads.
+stop_event = threading.Event()  
 def signal_handler(sig, frame):
     print("\nInterrupt received. Stopping threads and exiting...")
     stop_event.set()  # Set the stop event to True
     sys.exit(0)  # Exit the program
-
 signal.signal(signal.SIGINT, signal_handler)  # Register the signal handler
 
 
@@ -42,8 +37,7 @@ cocontraction = ThreadSafeState()
 hand_or_wrist = ThreadSafeState()
 
 
-'''
-Myoprocessor function proposed solution.'''
+''' Myoprocessor function proposed solution. '''
 def myoprocessor_controll(hand_or_wrist, cocontraction):
     if not preprocessed_emg_queue.is_empty():
         start_controlled = time.process_time_ns()
@@ -57,6 +51,15 @@ def myoprocessor_controll(hand_or_wrist, cocontraction):
     else:
         return None, None
 
+''' Myoprocessor function proposed solution. '''
+def myoprocessor_controll_directly(preprocessed_data, hand_or_wrist, cocontraction):
+    if not preprocessed_data is None:
+        hand_controll, wrist_controll = myoprocessor.sequential_control(preprocessed_data, hand_or_wrist, cocontraction)
+
+        return hand_controll, wrist_controll
+    else:
+        return None, None
+    
 def prosthesis_setpoints(hand_controll, wrist_controll):
     if hand_controll is not None and wrist_controll is not None:
         start_prosthesis = time.process_time_ns()
@@ -69,91 +72,55 @@ def prosthesis_setpoints(hand_controll, wrist_controll):
         return prosthesis_setpoint
     else:
         return None
-    
-
 
 def main():
     # Initialize connection to Trigno EMG
-    
-    '''
-    while not stop_event.is_set():
-        raw_data = emg_in.read_raw_data(dev, raw_emg_queue)
-        print('size raw data:', len(raw_data[0]))
-        #print("length raw emg queue", len(raw_emg_queue.queue))
-        preprocessed_data = emg_preprocessing.preprocess_raw_data(raw_emg_queue, preprocessed_emg_queue)
-        print('size preprocessed data:', len(preprocessed_data[0]))
-        #print("lenght processed emg queue", len(preprocessed_emg_queue.queue))    
-        #print("preprocessed data", preprocessed_data)
-        #hand_controll, wrist_controll = myoprocessor_controll(hand_or_wrist, cocontraction)
-        #print('hand_controll:', hand_controll)
-        #print('wrist_controll:', wrist_controll)
-        #setpoints = prosthesis_setpoints(hand_controll, wrist_controll)
-        #print('prosthesis_setpoint:', setpoints)
-        #write_to_daq(prosthesis_setpoint_queue)
-
-
-    emg_in.stop_trigno(dev)
-    '''
-
-
-    # Start plotting threads
-    #raw_plot_thread = threading.Thread(target=plots.plot_raw_signal, args=(raw_emg_queue, stop_event))
-    #preprocessed_plot_thread = threading.Thread(target=plots.plot_preprocessed_signal, args=(preprocessed_emg_queue, stop_event))
-    #setpoints_plot_thread = threading.Thread(target=plots.plot_prosthesis_setpoints, args=(prosthesis_setpoint_queue, stop_event))
-
-    #raw_plot_thread.start()
-    #preprocessed_plot_thread.start()
-    #setpoints_plot_thread.start()
- 
     dev = emg_in.trigno_startup(stop_event=stop_event)
-    SERIAL_PORT = 'COM6'  # Replace 'COM3' with your port
-    ser = serial.Serial(SERIAL_PORT, baudrate=9600, timeout=1)  # Open serial port
+
+    # Initialize connection to serial port
+    try:
+        SERIAL_PORT = 'COM6'  # Replace 'COM3' with your port
+        ser = serial.Serial(SERIAL_PORT, baudrate=9600, timeout=1)  # Open serial port
+    except serial.SerialException as e:
+        print("Error opening serial port:", e)
+        ser = None
+    except Exception as e:
+        print("Unknown error:", e)
+        ser = None
+
     # Define threads for data processing
     def data_processing_thread():
-        fig, ax = plt.subplots()
-        line, = ax.plot([], [], lw=2)  # Line object to be updated
-        ax.set_ylim(-1, 1)  # Adjust according to your EMG signal range
-        ax.set_xlim(0, 100)  # Adjust this based on how much data you want to plot at once
-        ax.set_title("Real-Time EMG Data")
-        ax.set_xlabel("Time")
-        ax.set_ylabel("Amplitude")
-
-        data_buffer = []
-        while not stop_event.is_set():
-        #for i in range(2):
-            try:
+        try:
+            while not stop_event.is_set():
                 raw_data = emg_in.read_raw_data(dev, raw_emg_queue=raw_emg_queue)
-                data_buffer.append(raw_data) 
-                if len(data_buffer) > 100:
-                    data_buffer.pop(0)  
-
-                line.set_data(range(len(data_buffer)), data_buffer)
-               # print('raw_emg_queue:', raw_emg_queue.queue)
-                preprocessed_data = emg_preprocessing.preprocess_raw_data(raw_emg_queue=raw_emg_queue, preprocessed_emg_queue=preprocessed_emg_queue)
-               # print('preprocessed_emg_queue:', preprocessed_emg_queue.queue)
-                hand_controll, wrist_controll = myoprocessor_controll(hand_or_wrist, cocontraction)
+                # print('raw_emg_queue:', raw_emg_queue.queue)
+                #preprocessed_data = emg_preprocessing.preprocess_raw_data(raw_emg_queue=raw_emg_queue, preprocessed_emg_queue=preprocessed_emg_queue)
+                preprocessed_data = emg_preprocessing.preprocess_raw_data_directly(raw_data=raw_data, preprocessed_emg_queue=preprocessed_emg_queue)
+                #print('preprocessed_data:', preprocessed_data)
+                
+                # print('preprocessed_emg_queue:', preprocessed_emg_queue.queue)
+                #hand_controll, wrist_controll = myoprocessor_controll(hand_or_wrist, cocontraction)
+                hand_controll, wrist_controll = myoprocessor_controll_directly(preprocessed_data, hand_or_wrist, cocontraction)
                 #print('hand_controll:', hand_controll)
                 #print('wrist_controll:', wrist_controll)
                 setpoints = prosthesis_setpoints(hand_controll, wrist_controll)
-                #print('prosthesis_setpoint:', setpoints)
-                if ser.is_open:
-                    pyserial.write_to_hand(ser=ser, setpoints=setpoints)
-                else:
-                    print("Serial port is not open")
+            #print('prosthesis_setpoint:', setpoints)
+            #if ser.is_open:
+            #    pyserial.write_to_hand(ser=ser, setpoints=setpoints)
+            #else:
+            #    print("Serial port is not open")
 
-            except Exception as e:
-                print("Unknown error:", e)
-                stop_event.set()
-                break
-    
+        except Exception as e:
+            print("Unknown error:", e)
+            stop_event.set()
+
+
     # Start data processing thread
     processing_thread = threading.Thread(target=data_processing_thread)
-    #daq_thread = threading.Thread(target=write_daq_thread)
     processing_thread.start()
-    #daq_thread.start()
     
     # Start plotting in the main thread
-    #plots.plot_all_signals(raw_emg_queue=raw_emg_queue, preprocessed_emg_queue=preprocessed_emg_queue, prosthesis_setpoint_queue=prosthesis_setpoint_queue, stop_event=stop_event)
+    plots.plot_all_signals(raw_emg_queue=raw_emg_queue, preprocessed_emg_queue=preprocessed_emg_queue, prosthesis_setpoint_queue=prosthesis_setpoint_queue, stop_event=stop_event)
    
 
     #plots.plot_preprocessed_signal(preprocessed_emg_queue, stop_event)
@@ -162,8 +129,6 @@ def main():
     # Wait for data processing thread to finish
     processing_thread.join()
     #ser.close()  # Close serial port
-
-    #daq_thread.join()    
 
 '''
     while not stop_event.is_set():
