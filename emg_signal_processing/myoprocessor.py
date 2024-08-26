@@ -4,6 +4,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import numpy as np
 import config
+import time
 
 
 def hysteresis(signal, prev_state, threshold, width):
@@ -26,8 +27,6 @@ def hysteresis(signal, prev_state, threshold, width):
             return True
         else:
             return prev_state
-
-
 
 def sequential_control(processed_signal, hand_or_wrist_state, cocontraction_state):
     '''
@@ -86,3 +85,25 @@ def sequential_control(processed_signal, hand_or_wrist_state, cocontraction_stat
     hand_array = np.array(hand_array, dtype=np.float64)
     wrist_array = np.array(wrist_array, dtype=np.float64)
     return hand_array, wrist_array
+
+
+''' Proposed solution of Myoprocessor control with queue of preprocessed data as input.'''
+def myoprocessor_controll(preprocessed_emg_queue, hand_or_wrist, cocontraction):
+    if not preprocessed_emg_queue.is_empty():
+        sample_index, processed_emg = preprocessed_emg_queue.get_last()  # Get the last preprocessed signal from the queue
+        
+        hand_controll, wrist_controll = sequential_control(processed_emg, hand_or_wrist, cocontraction)
+        return hand_controll, wrist_controll
+    else:
+        return None, None
+
+
+''' Myoprocessor function proposed solution. Preprocessed data as input.'''
+def myoprocessor_controll_directly(preprocessed_data, hand_or_wrist, cocontraction):
+    if not preprocessed_data is None:
+        hand_controll, wrist_controll = sequential_control(preprocessed_data, hand_or_wrist, cocontraction)
+
+        return hand_controll, wrist_controll
+    else:
+        return None, None
+    

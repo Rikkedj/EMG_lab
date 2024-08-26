@@ -86,12 +86,19 @@ def preprocess_raw_data_directly(raw_data, preprocessed_emg_queue): # Change que
         processed_emg = []
         for sensor in raw_data:
             rectified = np.abs(sensor)
+#            print('Rectified:', rectified)
+
             downsampled = downsample(rectified, original_rate=config.SENSOR_FREQ, target_rate=config.PROCESSING_FREQ)
+            print('Downsampled:', downsampled)
+            
             gained = downsampled * config.RECTIFIED_SIGNAL_GAIN
+            print('Gained:', gained)
+            
             filtered = filter_signal(gained, lowcut=config.FILTER_LOW_CUTOFF_FREQUENCY, fs=config.PROCESSING_FREQ, order=config.FILTER_ORDER, btype='low')
             correct_mean = filtered - np.mean(filtered)
-
             processed_emg.append(correct_mean) # Filter, rectify, and downsample the raw signal
+            #rectified = np.abs(correct_mean)
+#            processed_emg.append(rectified) # Filter, rectify, and downsample the raw signal
 
         preprocessed_emg_queue.append(processed_emg) # Add an array of the preprocessed data to all the sensors to the queue
         return processed_emg

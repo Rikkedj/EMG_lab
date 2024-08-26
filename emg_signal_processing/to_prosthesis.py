@@ -4,6 +4,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import numpy as np
 import config
+import time
 
 def saturate(signal, min_value=-5, max_value=5):
     """
@@ -53,3 +54,13 @@ def prosthesis_signals(hand_diff_signal, wrist_diff_signal):
     
     return combined_signal
 
+
+
+def prosthesis_setpoints(prosthesis_setpoint_queue, hand_controll, wrist_controll):
+    if hand_controll is not None and wrist_controll is not None:
+        prosthesis_setpoint = prosthesis_signals(hand_controll, wrist_controll)
+        prosthesis_setpoint_queue.append(prosthesis_setpoint)
+
+        return prosthesis_setpoint
+    else:
+        return None

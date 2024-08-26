@@ -55,7 +55,7 @@ def write_to_hand(ser, setpoints):
         packet_bytes = bytearray(packet)
         ser.write(packet_bytes)
 
-        print("Bytes written:", ser.read(1))
+        print("Feedback from serial: ", ser.read(1))
     #else:
      #   print("Serial port is not open")
 

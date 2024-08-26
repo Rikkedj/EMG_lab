@@ -14,9 +14,7 @@ def plot_all_signals(raw_emg_queue, preprocessed_emg_queue, prosthesis_setpoint_
     # Define the time window size in seconds
     window_raw = int(config.SENSOR_FREQ*raw_emg_queue.window_size)
     window_processed = int(config.PROCESSING_FREQ*preprocessed_emg_queue.window_size)
-    step_size_raw  = int(config.SENSOR_FREQ)
-    #step_size_raw  = 2
-    step_size_processed = int(config.PROCESSING_FREQ)
+    window_setpoint = int(config.PROCESSING_FREQ*prosthesis_setpoint_queue.window_size)
 
     # Raw emg
     fig_raw, ax1 = plt.subplots()
@@ -63,23 +61,26 @@ def plot_all_signals(raw_emg_queue, preprocessed_emg_queue, prosthesis_setpoint_
     raw_data_buffer = np.zeros((len(config.ACTIVE_CHANNELS), int(window_raw)))
     last_sample_raw = 0
     preprocessed_buffer = np.zeros((len(config.ACTIVE_CHANNELS), int(window_processed)))
-    setpoint_buffer = np.zeros((2, int(window_processed)))  # Assuming 2 prosthesis setpoints (Hand and Wrist)
+    setpoint_buffer = np.zeros((2, int(window_setpoint)))  # Assuming 2 prosthesis setpoints (Hand and Wrist)
 
     current_pos_raw = 0  # Start at position 0
     current_pos_processed = 0
+    current_pos_setpoint = 0
 
+    start_time = time.time()
     while not stop_event.is_set():
         if not raw_emg_queue.is_empty():
             #sample_index, raw_data = raw_emg_queue.get_copy()
             sample_index_raw, raw_data = raw_emg_queue.get_last()
             
+            if sample_index_raw == last_sample_raw:
+                #print('Same sample as last read, skipping...')
+                time.sleep(0.01)
+                continue
+            
+            last_sample_raw = sample_index_raw
             raw_data_buffer = np.roll(raw_data_buffer, -len(raw_data[0]), axis=1)  # Shift data to the left
             raw_data_buffer[:, -len(raw_data[0]):] = raw_data  # Append new data to the right
-            
-            if sample_index_raw == last_sample_raw:
-                print('Same sample as last read, skipping...')
-                continue
-            last_sample_raw = sample_index_raw
             
             for i, line in enumerate(lines1):
                 line.set_xdata(np.arange(current_pos_raw, current_pos_raw + len(raw_data_buffer[i])))
@@ -88,10 +89,9 @@ def plot_all_signals(raw_emg_queue, preprocessed_emg_queue, prosthesis_setpoint_
             ax1.relim()
             ax1.autoscale_view() 
             ax1.set_xlim(current_pos_raw, current_pos_raw + window_raw+100)
-            # drawing updated values
             fig_raw.canvas.draw()
             fig_raw.canvas.flush_events()
-            plt.pause(0.1)
+            plt.pause(0.001)
             current_pos_raw = current_pos_raw + len(raw_data[0])
             
 
@@ -111,24 +111,35 @@ def plot_all_signals(raw_emg_queue, preprocessed_emg_queue, prosthesis_setpoint_
             # Redraw the plot
             fig_pros.canvas.draw()
             fig_pros.canvas.flush_events()
-            plt.pause(0.1)
+            plt.pause(0.001)
             current_pos_processed = current_pos_processed + len(preprocessed_data[0])
 
         if not prosthesis_setpoint_queue.is_empty():
             sample_index, setpoints = prosthesis_setpoint_queue.get_last()
             hand_setpoint, wrist_setpoint = setpoints
 
-            line3.set_data(np.arange(len(hand_setpoint)), hand_setpoint)
-            line4.set_data(np.arange(len(wrist_setpoint)), wrist_setpoint)
+            setpoint_buffer = np.roll(setpoint_buffer, -len(hand_setpoint), axis=1)  # Shift data to the left
+            setpoint_buffer[:, -len(hand_setpoint):] = setpoints
+            
+            line3.set_xdata(np.arange(current_pos_setpoint, current_pos_setpoint + len(setpoint_buffer[0])))
+            line3.set_ydata(setpoint_buffer[0])
+
+            line4.set_xdata(np.arange(current_pos_setpoint, current_pos_setpoint + len(setpoint_buffer[1])))
+            line4.set_ydata(setpoint_buffer[1])
 
             ax3.relim()
             ax3.autoscale_view()
             ax4.relim()
             ax4.autoscale_view()
 
-            plt.pause(0.01)
-            plt.draw()
+            ax3.set_xlim(current_pos_setpoint, current_pos_setpoint + window_setpoint)
+            ax4.set_xlim(current_pos_setpoint, current_pos_setpoint + window_setpoint)
+            fig_setpoint.canvas.draw()
+            fig_setpoint.canvas.flush_events()
+            current_pos_setpoint = current_pos_setpoint + len(setpoint_buffer[0])
+            plt.pause(0.001)
+
 
     plt.ioff()  # Disable interactive mode when exiting
-    plt.close(fig_raw, fig_pros, fig_setpoint)
+    #plt.close(fig_raw, fig_pros, fig_setpoint)
 
