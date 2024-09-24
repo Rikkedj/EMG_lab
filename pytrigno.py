@@ -123,26 +123,12 @@ class _BaseTrignoDaq(object):
         l = 0
         packet = bytes()
         while l < l_des:
-            if self.stop_event.is_set():
-                print("Data reading stopped due to signal interrupt.")
-                return None
             try:
-                # Attempt to receive data from the socket
-                chunk = self._data_socket.recv(l_des - l)
-                if not chunk:
-                    # If chunk is empty, the connection is closed
-                    raise IOError("Device disconnected.")
-                packet += chunk
+                packet += self._data_socket.recv(l_des - l)
             except socket.timeout:
-                # Timeout occurred, check if stop event is set
                 l = len(packet)
                 packet += b'\x00' * (l_des - l)
                 raise IOError("Device disconnected.")
-            except socket.error as e:
-                # Handle other socket errors
-                print(f"Socket error: {e}")
-                return None
-            
             l = len(packet)
 
         data = numpy.asarray(

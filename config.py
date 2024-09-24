@@ -11,10 +11,10 @@ EMG_PORT = 50043
 ACC_PORT = 50044
 
 # List of the of EMG sources in use
-ACTIVE_CHANNELS = [11,13]
+ACTIVE_CHANNELS = [1,2]
 
 ## EMG Preprocessing values
-SENSOR_FREQ = 2000
+SENSOR_FREQ = 125
 PROCESSING_FREQ = 33.3
 RAW_SIGNAL_GAIN = 1000 ## This should be changed in Lab 1, maybe remove to main script
 RECTIFIED_SIGNAL_GAIN = 120
