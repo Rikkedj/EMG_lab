@@ -35,28 +35,26 @@ cocontraction = ThreadSafeState()
 hand_or_wrist = ThreadSafeState()
 
 
-
-
 def main():
     # Initialize connection to Trigno EMG
-    dev = emg_in.trigno_startup(stop_event=stop_event)
+    dev = emg_in.trigno_startup()
 
     # Initialize connection to serial port
-    try:
-        SERIAL_PORT = 'COM6'  # Replace 'COM6' with your port. Should make something that finds the port automatically.
-        ser = serial.Serial(SERIAL_PORT, baudrate=9600, timeout=1)  # Open serial port
-    except serial.SerialException as e:
-        print("Error opening serial port:", e)
-        ser = None
-    except Exception as e:
-        print("Unknown error:", e)
-        ser = None
+    # try:
+    #     SERIAL_PORT = 'COM6'  # Replace 'COM6' with your port. Should make something that finds the port automatically.
+    #     ser = serial.Serial(SERIAL_PORT, baudrate=9600, timeout=1)  # Open serial port
+    # except serial.SerialException as e:
+    #     print("Error opening serial port:", e)
+    #     ser = None
+    # except Exception as e:
+    #     print("Unknown error:", e)
+    #     ser = None
 
     # Define threads for data processing
     #def data_processing_thread():
     #    try:
     while not stop_event.is_set():
-        raw_data = emg_in.read_raw_data(dev, raw_emg_queue=raw_emg_queue)
+        raw_data = emg_in.read_raw_data(dev)
         #preprocessed_data = emg_preprocessing.preprocess_raw_data(raw_emg_queue=raw_emg_queue, preprocessed_emg_queue=preprocessed_emg_queue)
         preprocessed_data = emg_preprocessing.preprocess_raw_data_directly(raw_data=raw_data, preprocessed_emg_queue=preprocessed_emg_queue)
 
@@ -64,11 +62,11 @@ def main():
         hand_controll, wrist_controll = myoprocessor.myoprocessor_controll_directly(preprocessed_data, hand_or_wrist, cocontraction)
         setpoints = to_prosthesis.prosthesis_setpoints(prosthesis_setpoint_queue, hand_controll, wrist_controll)
 
-        if ser.is_open:
-            pyserial.write_to_hand(ser=ser, setpoints=setpoints)
-            #print('wsetpoints:', setpoints)
-    else:
-        print("Serial port is not open")
+        # if ser.is_open:
+        #     pyserial.write_to_hand(ser=ser, setpoints=setpoints)
+        #     #print('wsetpoints:', setpoints)
+        # else:
+        #     print("Serial port is not open")
 
         #except Exception as e:
         #    print("Unknown error:", e)
@@ -79,13 +77,45 @@ def main():
     #processing_thread = threading.Thread(target=data_processing_thread)
     plotThread = threading.Thread(target=plots.plot_all_signals(raw_emg_queue=raw_emg_queue, preprocessed_emg_queue=preprocessed_emg_queue, prosthesis_setpoint_queue=prosthesis_setpoint_queue, stop_event=stop_event))
     plotThread.start()
-    plotThread.join()
+    #plotThread.join()
     #processing_thre+ad.start()
     # Start plotting in the main thread
     #plots.plot_all_signals(raw_emg_queue=raw_emg_queue, preprocessed_emg_queue=preprocessed_emg_queue, prosthesis_setpoint_queue=prosthesis_setpoint_queue, stop_event=stop_event)
     # Wait for data processing thread to finish
     #processing_thread.join()
     #ser.close()  # Close serial port
+
+    # while True:
+
+
+    #     d = data.recv(4*16)
+    #     #for i in range(0, len(d)):
+    #     #    if d[i] == 0:
+    #     #        d = d[:i]
+    #     #        break
+    #     if d[0] != 0:
+    #         vs = struct.unpack('<'+'f'*16, d)
+    #         vs_str = []
+    #         for v in vs:
+    #             vs_str.append("{:07.4f}".format(v))
+    #         print(", ".join(vs_str), " ", len(d), " ", "{:7.4f}".format(((time.time() - t) * 1000)))
+
+
+
+    # # Initialize connection to Trigno EMG
+    # dev = emg_in.trigno_startup()
+
+
+    # arr = []
+    # for i in range(100):
+    #     t = time.time()
+    #     raw_data = emg_in.read_raw_data(dev)
+    #     #print(len(raw_data[0]), 'time: ', time.time()-t)
+    #     arr.append(time.time()-t)
+
+    # fig, ax = plt.subplots()
+    # ax.plot(range(0,len(arr)) ,arr)
+    # plt.show()
 
 
 if __name__ == "__main__":
